@@ -27,7 +27,7 @@ Imputation of Missing Values
 
 ## Imputation of Missing Values
 
-The below plot illustrates how many attributes contain `NA` values and what percentage of `NA` make up those attributes. Three attributes in particular contain greater than 40% missing values. This percentage is relatively low compared to other datasets, and therefore none of the attributes are excluded based on missing values alone.
+The below plot illustrates how many attributes contain missing values and what percentage of missing values make up those attributes. Three attributes in particular contain greater than 40% missing values. This percentage is relatively low compared to other datasets, and therefore none of the attributes are excluded based on missing values alone.
 
 <img src="NA_Values.png" alt="Percent Missing Values in HCC Survival Dataset" width="85%"/>
 
@@ -35,11 +35,9 @@ The below plot illustrates how many attributes contain `NA` values and what perc
 
 I also verify there are no missing values in the response variable, as these will be meaningless.
 
-    ## [1] "NA values in response variable (Survival): "
+    ## [1] "Missing values in response variable (Survival): "
 
     ## NULL
-
-Imputation of missing values is done using the `mice` package. `Nominal` attributes are imputated with the `logreg` method, `ordinal` attributes are imputated with the `polyreg` method, and `continuous` variables are imputated with the `norm` method.
 
 </div>
 
