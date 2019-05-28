@@ -139,11 +139,11 @@ Correlated attributes are reported in the table below using a custom function wh
 
 The following histograms and boxplots illustrate the distribution of each continuous and categorical predictor variable. Interestingly, at first glance of the boxplots for the variable `Number of Nodules`, survival does not seem to be affected by the number of nodules, which is counterintuitive. However, there might be differences in survival based on the variables `Leukocytes`, `Albumin`, `Gamma Glutamyl Transferase`, and `Alkaline Phosphatase`.
 
-<img src="histograms.png" alt="Histograms of Continuous Variables in HCC Survival Dataset">
+<img src="histograms.png" alt="Histograms of Continuous Variables in HCC Survival Dataset" width="70%"/>
 
-<img src="boxplots1.png" alt="Boxplots of Continuous Variables in HCC Survival Dataset">
+<img src="boxplots1.png" alt="Boxplots of Continuous Variables in HCC Survival Dataset" width="70%"/>
 
-<img src="boxplots2.png" alt="Boxplots of Categorical Variables in HCC Survival Dataset">
+<img src="boxplots2.png" alt="Boxplots of Categorical Variables in HCC Survival Dataset" width="70%"/>
 
 </div>
 
@@ -313,7 +313,7 @@ Since this dataset has many features, prediction accuracy might be improved by s
 
 Forward stepwise selection reduces the original 44 predictors to only 23\. The new formula to becomes:
 
-<span class="math display">\[ \begin{aligned} Survival &= Alcohol + \\ &Hepatitis.B.Surface.Antigen + \\ &Hepatitis.C.Virus.Antibody + \\ &Smoking + \\ &Diabetes + \\ &Hemochromatosis + \\ &Arterial.Hypertension + \\ &Nonalcoholic.Steatohepatitis + \\ &Splenomegaly + \\ &Portal.Hypertension + \\ &Portal.Vein.Thrombosis + \\ &Age.at.diagnosis + \\ &Performance.Status + \\ &Encefalopathy.degree + \\ &Ascites.degree + \\ &AlphaFetoprotein + \\ &Haemoglobin + \\ &Total.Bilirubin + \\ &Alanine.transaminase + \\ &Alkaline.phosphatase + \\ &Major.dimension.of.nodule + \\ &Iron + \\ &Ferritin \end{aligned} \]</span>
+Survival = Alcohol + Hepatitis.B.Surface.Antigen + Hepatitis.C.Virus.Antibody + Smoking + Diabetes + Hemochromatosis + Arterial.Hypertension + Nonalcoholic.Steatohepatitis + Splenomegaly + Portal.Hypertension + Portal.Vein.Thrombosis + Age.at.diagnosis + Performance.Status + Encefalopathy.degree + Ascites.degree + AlphaFetoprotein + Haemoglobin + Total.Bilirubin + Alanine.transaminase + Alkaline.phosphatase + Major.dimension.of.nodule + Iron + Ferritin
 
 </div>
 
@@ -323,7 +323,7 @@ Forward stepwise selection reduces the original 44 predictors to only 23\. The n
 
 Backward stepwise selection reduces the original 44 predictors to 22\. The new formula to becomes:
 
-<span class="math display">\[ \begin{aligned} Survival &= Alcohol + \\ &Hepatitis.B.Surface.Antigen + \\ &Hepatitis.C.Virus.Antibody + \\ &Smoking + \\ &Diabetes + \\ &Hemochromatosis + \\ &Arterial.Hypertension + \\ &Nonalcoholic.Steatohepatitis + \\ &Splenomegaly + \\ &Portal.Hypertension + \\ &Portal.Vein.Thrombosis + \\ &Age.at.diagnosis + \\ &Performance.Status + \\ &Encefalopathy.degree + \\ &Ascites.degree + \\ &AlphaFetoprotein + \\ &Haemoglobin + \\ &Total.Bilirubin + \\ &Alanine.transaminase + \\ &Alkaline.phosphatase + \\ &Major.dimension.of.nodule + \\ &Ferritin \end{aligned} \]</span>
+Survival = Alcohol + Hepatitis.B.Surface.Antigen + Hepatitis.C.Virus.Antibody + Smoking + Diabetes + Hemochromatosis + Arterial.Hypertension + Nonalcoholic.Steatohepatitis + Splenomegaly + Portal.Hypertension + Portal.Vein.Thrombosis + Age.at.diagnosis + Performance.Status + Encefalopathy.degree + Ascites.degree + AlphaFetoprotein + Haemoglobin + Total.Bilirubin + Alanine.transaminase + Alkaline.phosphatase + Major.dimension.of.nodule + Ferritin
 
 </div>
 
@@ -435,12 +435,10 @@ Results for all models using a subset of predictors are reported in table 3\. Ov
 
 This dataset attempts to find a relationship between several predictor variables in order to be able to predict patients’ survival of HCC beyond 1 year. In our analysis, we have narrowed down the list of 44 predictor variables to just 22 using backward stepwise selection. The proposed model is:
 
-<span class="math display">\[ \begin{aligned} Survival &= Alcohol + \\ &Hepatitis.B.Surface.Antigen + \\ &Hepatitis.C.Virus.Antibody + \\ &Smoking + \\ &Diabetes + \\ &Hemochromatosis + \\ &Arterial.Hypertension + \\ &Nonalcoholic.Steatohepatitis + \\ &Splenomegaly + \\ &Portal.Hypertension + \\ &Portal.Vein.Thrombosis + \\ &Age.at.diagnosis + \\ &Performance.Status + \\ &Encefalopathy.degree + \\ &Ascites.degree + \\ &AlphaFetoprotein + \\ &Haemoglobin + \\ &Total.Bilirubin + \\ &Alanine.transaminase + \\ &Alkaline.phosphatase + \\ &Major.dimension.of.nodule + \\ &Ferritin \end{aligned} \]</span>
+Survival = Alcohol + Hepatitis.B.Surface.Antigen + Hepatitis.C.Virus.Antibody + Smoking + Diabetes + Hemochromatosis + Arterial.Hypertension + Nonalcoholic.Steatohepatitis + Splenomegaly + Portal.Hypertension + Portal.Vein.Thrombosis + Age.at.diagnosis + Performance.Status + Encefalopathy.degree + Ascites.degree + AlphaFetoprotein + Haemoglobin + Total.Bilirubin + Alanine.transaminase + Alkaline.phosphatase + Major.dimension.of.nodule + Ferritin 
 
 There is indication that the shape of the decision boundary is in fact linear since the best performing models are SVM with a polynomial kernel adn degree = 1, SVM with linear kernel, and logistic regression. Additional data can potentially vastly improve the approximately 20% test error rate, and all three models should be reevaluated to determine the best model. In doing so, this data and prediction model will help doctors determine a particular patient’s stage of HCC, and therefore determine best course of treatment.
 
 </div>
 
 </div>
-
-<script>// add bootstrap table styles to pandoc tables function bootstrapStylePandocTables() { $('tr.header').parent('thead').parent('table').addClass('table table-condensed'); } $(document).ready(function () { bootstrapStylePandocTables(); });</script> <script>(function () { var script = document.createElement("script"); script.type = "text/javascript"; script.src = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"; document.getElementsByTagName("head")[0].appendChild(script); })();</script>
