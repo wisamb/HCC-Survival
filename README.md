@@ -30,7 +30,7 @@ Imputation of Missing Values
 
 The below plot illustrates how many attributes contain missing values and what percentage of missing values make up those attributes. Three attributes in particular contain greater than 40% missing values. This percentage is relatively low compared to other datasets, and therefore none of the attributes are excluded based on missing values alone.
 
-<img src="NA_Values.png" alt="Percent Missing Values in HCC Survival Dataset" width="85%"/>
+<img src="/images/NA_Values.png" alt="Percent Missing Values in HCC Survival Dataset" width="85%"/>
 
 </div>
 
@@ -138,11 +138,11 @@ Correlated attributes are reported in the table below using a custom function wh
 
 The following histograms and boxplots illustrate the distribution of each continuous and categorical predictor variable. Interestingly, at first glance survival does not seem to be affected by the variable `Number of Nodules`, which is counterintuitive. However, there might be differences in survival based on the variables `Leukocytes`, `Albumin`, `Gamma Glutamyl Transferase`, and `Alkaline Phosphatase`.
 
-<img src="histograms.png" alt="Histograms of Continuous Variables in HCC Survival Dataset" width="85%"/>
+<img src="/images/histograms.png" alt="Histograms of Continuous Variables in HCC Survival Dataset" width="85%"/>
 
-<img src="boxplots1.png" alt="Boxplots of Continuous Variables in HCC Survival Dataset" width="85%"/>
+<img src="/images/boxplots1.png" alt="Boxplots of Continuous Variables in HCC Survival Dataset" width="85%"/>
 
-<img src="boxplots2.png" alt="Boxplots of Categorical Variables in HCC Survival Dataset" width="85%"/>
+<img src="/images/boxplots2.png" alt="Boxplots of Categorical Variables in HCC Survival Dataset" width="85%"/>
 
 </div>
 
