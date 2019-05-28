@@ -4,9 +4,9 @@
 
 Survival data was collected on patients of liver cancer (Hepatocarcinoma, or HCC) from a University Hospital in Portugal. The response variable is survival at 1 year of initial diagnosis and is classified as lives = 1 and dies = 0\. The dataset contains several demographic, risk factors, and laboratory data of 165 patients that have been diagnosed with HCC. The dataset is heterogeneous with 23 quantitative predictor variables and 26 qualitative predictor variables. Missing values account for 10.2% of the whole dataset with only 8 patients having complete data in all fields.
 
-The problem to answer here is what demographic or clinical data contribute to a patient’s survival of HCC beyond 1 year. To solve the problem, exploratory analysis consisting of finding correlated variables, imputation of missing values, and characterizing the distribution via histograms and boxplots. The entire dataset is then analyzed using several models, including logistic regression, linear discriminant analysis (LDA), quadratic discriminant analysis (QDA), Gaussian finite mixture models using the `mclust` package, random forest, and support vector machines (SVM). Each model was run using the validation set approach (VSA) which splits the data into 50% training set and 50% test set, leave-one-out cross validation (LOOCV), and 5-fold cross validation. From these results, the best performing models (determined by less than 30% test error rate) are run again on a subset of predictors which are chosen using forward and backward stepwise selection. These results are also reported and the best model is chosen.
+The problem to answer here is what demographic or clinical data contribute to a patient’s survival of HCC beyond 1 year. To solve the problem, exploratory analysis consisting of finding correlated variables, imputation of missing values, and characterizing the distribution via histograms and boxplots. The entire dataset is then analyzed using several predictive models, including logistic regression, linear discriminant analysis (LDA), quadratic discriminant analysis (QDA), Gaussian finite mixture models using the `mclust` package, random forest, and support vector machines (SVM). Each model was run using the validation set approach (VSA) which splits the data into 50% training set and 50% test set, leave-one-out cross validation (LOOCV), and 5-fold cross validation. From these results, the best performing models (determined by test error rate) are run again on a subset of predictors which are chosen using forward and backward stepwise selection. These results are also reported and the best model is chosen.
 
-**Notes on the analysis models:** Since this is survival data, special consideration is required for analysis; namely, that survival data is generally not normally distributed. By breaking the normality assumption, this dataset is not ideal for LDA and QDA; however these models are still run for comparison. Instead, I anticipate this dataset is ideal for either logistic regression, SVM, or non-parametric models, such as kNN. Which of these two models will perform better depends on the shape of the decision boundary. If the decision boundary is linear, then logistic regression can be used. If it is not, kNN would be the model of choice. However, since there are only 165 rows, training data is limited which is not optimal for a kNN model. In that case and if logistic regression cannot be used, then more data collection is required.
+**Notes on the analysis models:** Since this is survival data, special consideration is required for analysis; namely, that survival data is generally not normally distributed. By breaking the normality assumption, this dataset is not ideal for LDA and QDA; however these models are still run for comparison. Instead, I anticipate this dataset is ideal for either logistic regression, SVM, or non-parametric models, such as kNN. Which of these models will perform best depends on the shape of the decision boundary. If the decision boundary is linear, then logistic regression or linear SVM can be used. If it is not, kNN or polynomial SVM would be the model of choice. However, since there are only 165 rows, training data is limited which is not optimal for a kNN model. In that case and if the decision boundary is not linear, then more data collection will be required.
 
 The HCC dataset can be found <a href = "https://archive.ics.uci.edu/ml/datasets/HCC+Survival#" target="_blank">here</a>.
 
@@ -15,6 +15,7 @@ The HCC dataset can be found <a href = "https://archive.ics.uci.edu/ml/datasets/
 **Skills Used:** <br>
 Machine Learning<br> 
 Predictive Modeling<br>
+Exploratory Analysis<br>
 Imputation of Missing Values
 
 </div>
@@ -135,7 +136,7 @@ Correlated attributes are reported in the table below using a custom function wh
 
 ## Histograms and BoxPlots
 
-The following histograms and boxplots illustrate the distribution of each continuous and categorical predictor variable. Interestingly, at first glance of the boxplots for the variable `Number of Nodules`, survival does not seem to be affected by the number of nodules, which is counterintuitive. However, there might be differences in survival based on the variables `Leukocytes`, `Albumin`, `Gamma Glutamyl Transferase`, and `Alkaline Phosphatase`.
+The following histograms and boxplots illustrate the distribution of each continuous and categorical predictor variable. Interestingly, at first glance survival does not seem to be affected by the variable `Number of Nodules`, which is counterintuitive. However, there might be differences in survival based on the variables `Leukocytes`, `Albumin`, `Gamma Glutamyl Transferase`, and `Alkaline Phosphatase`.
 
 <img src="histograms.png" alt="Histograms of Continuous Variables in HCC Survival Dataset" width="85%"/>
 
@@ -331,7 +332,7 @@ Backward stepwise selection reduces the original 44 predictors to 22\. The new f
 
 # Analysis using Subset of Predictors
 
-Results for all models using a subset of predictors are reported in table 3\. Overall, we find a significant reduction in test error rate for all models, with forward stepwise selection performing better than backward stepwise selection, with two exceptions. In general, logistic regression using and SVM performed better than other models and four of those models had test error rates below 20%. SVM using a polynomial kernel and backward step selection performed the best with a test error rate of 18.2%. However, the polynomial kernel uses degree = 1.
+Results for all models using a subset of predictors are reported in table 3\. Overall, we find a significant reduction in test error rate for all models, with forward stepwise selection performing better than backward stepwise selection, with two exceptions. In general, logistic regression using LOOCV and SVM performed better than other models, and four of those models had test error rates below 20%. SVM using a polynomial kernel and backward step selection performed the best with a test error rate of 18.2%. However, the polynomial kernel uses degree = 1 which is equivalent to a linear kernel (the difference in results being in the other parameters of the svm algorithm).
 
 <table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"><caption>Top Performing Models with Subset of Predictors</caption>
 
@@ -431,11 +432,11 @@ Results for all models using a subset of predictors are reported in table 3\. Ov
 
 # Final Conclusion
 
-This dataset attempts to find a relationship between several predictor variables in order to be able to predict patients’ survival of HCC beyond 1 year. In our analysis, we have narrowed down the list of 44 predictor variables to just 22 using backward stepwise selection. The proposed model is:
+This dataset attempts to find a relationship between several variables in order to be able to predict a patient's survival of HCC beyond 1 year. In our analysis, we have narrowed down the list of 44 predictor variables to just 22 using backward stepwise selection. The proposed model is:
 
 <i>Survival = Alcohol + Hepatitis.B.Surface.Antigen + Hepatitis.C.Virus.Antibody + Smoking + Diabetes + Hemochromatosis + Arterial.Hypertension + Nonalcoholic.Steatohepatitis + Splenomegaly + Portal.Hypertension + Portal.Vein.Thrombosis + Age.at.diagnosis + Performance.Status + Encefalopathy.degree + Ascites.degree + AlphaFetoprotein + Haemoglobin + Total.Bilirubin + Alanine.transaminase + Alkaline.phosphatase + Major.dimension.of.nodule + Ferritin </i>
 
-There is indication that the shape of the decision boundary is in fact linear since the best performing models are SVM with a polynomial kernel adn degree = 1, SVM with linear kernel, and logistic regression. Additional data can potentially vastly improve the approximately 20% test error rate, and all three models should be reevaluated to determine the best model. In doing so, this data and prediction model will help doctors determine a particular patient’s stage of HCC, and therefore determine best course of treatment.
+There is indication that the shape of the decision boundary is in fact linear since the best performing models are SVM with a polynomial kernel and degree = 1, SVM with a linear kernel, and logistic regression. Additional data can potentially vastly improve the approximately 20% test error rate, and all three models should be reevaluated to determine the best performing model. In doing so, this data and associated prediction model can potentially help doctors determine a particular patient’s stage of HCC, and therefore determine best course of treatment.
 
 </div>
 
