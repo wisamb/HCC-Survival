@@ -1,0 +1,2397 @@
+---
+title: "HCC Survival"
+author: "Wisam Barkho"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  pdf_document: default
+header-includes: #allows you to add in your own Latex packages
+- \usepackage{float} #use the 'float' package
+- \floatplacement{figure}{H} #make every figure with caption = h
+toc: TRUE
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, echo = FALSE, cache = FALSE, fig.pos = "h")
+```
+
+```{r}
+# #install required packages
+# install.packages("ggplot2")
+# install.packages("knitr")
+# install.packages("kableExtra")
+# install.packages("ggplot2")
+# install.packages("gridExtra")
+# install.packages("GGally")
+# install.packages("dplyr")
+# install.packages("Hmisc")
+# install.packages("mice")
+# install.packages("class")
+# install.packages("mclust")
+# install.packages("randomForest")
+# install.packages("MASS")
+# install.packages("e1071")
+# install.packages("leaps")
+```
+
+
+```{r, echo=FALSE}
+#load all packages 
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+library(gridExtra)
+library(GGally)
+library(dplyr)
+library(Hmisc)
+library(mice)
+library(class)
+library(mclust)
+library(randomForest)
+library(MASS)
+library(e1071)
+library(leaps)
+```
+
+# Introduction
+
+Survival data was collected on patients of liver cancer (Hepatocarcinoma, or HCC) from a University Hospital in Portugal. The response variable is survival at 1 year of initial diagnosis and is classified as lives = 1 and dies = 0. The dataset contains several demographic, risk factors, and laboratory data of 165 patients that have been diagnosed with HCC. The dataset is heterogeneous with 23 quantitative predictor variables and 26 qualitative predictor variables. Missing values account for 10.22% of the whole dataset with only 8 patients having complete data in all fields.
+
+The problem to answer here is what demographic or clinical data contribute to a patient's survival of HCC beyond 1 year. To solve the problem, exploratory analysis consisting of finding correlated variables, imputation of missing values, and characterizing the distribution via histograms and boxplots. The entire dataset is then analyzed using several models, including logistic regression, linear discriminant analysis (LDA), quadratic discriminant analysis (QDA), Gaussian finite mixture models using the `mclust` package, random forest, and support vector machines (SVM). Each model was run using the validation set approach (VSA) which splits the data into 50% training set and 50% test set, leave-one-out cross validation (LOOCV), and 5-fold cross validation. From these results, the best performing models (determined by less than 30% test error rate) are run again on a subset of predictors which are chosen using forward and backward stepwise selection. These results are also reported and the best model is chosen.
+
+**Notes on the analysis models:** Since this is survival data, special consideration is required for analysis; namely, that survival data is generally not normally distributed. By breaking the normality assumption, this dataset is not ideal for LDA and QDA; however these models are still run for comparison. Instead, I anticipate this dataset is ideal for either logistic regression, SVM, or non-parametric models, such as kNN. Which of these two models will perform better depends on the shape of the decision boundary. If the decision boundary is linear, then logistic regression can be used. If it is not, kNN would be the model of choice. However, since there are only 165 rows, training data is limited which is not optimal for a kNN model. In that case and if logistic regression cannot be used, then more data collection is required. 
+
+The HCC dataset can be found [$\color{blue}{\text{here}}$](https://archive.ics.uci.edu/ml/datasets/HCC+Survival#). 
+
+**Programming Languages/Software:** R, RStudio
+
+**Skills Used:** Machine Learning, Predictive Modeling, Imputation of Missing Values
+
+#Exploratory Analysis
+
+```{r, results='hide'}
+#import data set
+dataset <- read.csv("hcc-data.txt", header=FALSE, sep=",", na.strings = "?", stringsAsFactors=FALSE)
+
+#rename column names
+colnames(dataset) <- c("Gender",
+                      "Symptoms",
+                      "Alcohol",
+                      "Hepatitis.B.Surface.Antigen",
+                      "Hepatitis.B.e.Antigen",
+                      "Hepatitis.B.Core.Antibody",
+                      "Hepatitis.C.Virus.Antibody",
+                      "Cirrhosis",
+                      "Endemic.Countries",
+                      "Smoking",
+                      "Diabetes",
+                      "Obesity",
+                      "Hemochromatosis",
+                      "Arterial.Hypertension",
+                      "Chronic.Renal.Insufficiency",
+                      "Human.Immunodeficiency.Virus",
+                      "Nonalcoholic.Steatohepatitis",
+                      "Esophageal.Varices",
+                      "Splenomegaly",
+                      "Portal.Hypertension",
+                      "Portal.Vein.Thrombosis",
+                      "Liver.Metastasis",
+                      "Radiological.Hallmark",
+                      "Age.at.diagnosis",
+                      "Grams.of.Alcohol.per.day",
+                      "Packs.of.cigarets.per.year",
+                      "Performance.Status",
+                      "Encefalopathy.degree",
+                      "Ascites.degree",
+                      "International.Normalised.Ratio",
+                      "AlphaFetoprotein",
+                      "Haemoglobin",
+                      "Mean.Corpuscular.Volume",
+                      "Leukocytes",
+                      "Platelets",
+                      "Albumin",
+                      "Total.Bilirubin",
+                      "Alanine.transaminase",
+                      "Aspartate.transaminase",
+                      "Gamma.glutamyl.transferase",
+                      "Alkaline.phosphatase",
+                      "Total.Proteins",
+                      "Creatinine",
+                      "Number.of.Nodules",
+                      "Major.dimension.of.nodule",
+                      "Direct.Bilirubin",
+                      "Iron",
+                      "Oxygen.Saturation",
+                      "Ferritin",
+                      "Survival"
+                    )
+
+dataset
+```
+
+```{r, results='hide'}
+#assign nominal and ordingal columns as factors and continuous columns as double and integers
+dataset <- dataset %>%
+    mutate(
+        Gender=as.factor(Gender),
+        Symptoms=as.factor(Symptoms),
+        Alcohol=as.factor(Alcohol),
+        Hepatitis.B.Surface.Antigen=as.factor(Hepatitis.B.Surface.Antigen),
+        Hepatitis.B.e.Antigen=as.factor(Hepatitis.B.e.Antigen),
+        Hepatitis.B.Core.Antibody=as.factor(Hepatitis.B.Core.Antibody),
+        Hepatitis.C.Virus.Antibody=as.factor(Hepatitis.C.Virus.Antibody),
+        Cirrhosis=as.factor(Cirrhosis),
+        Endemic.Countries=as.factor(Endemic.Countries),
+        Smoking=as.factor(Smoking),
+        Diabetes=as.factor(Diabetes),
+        Obesity=as.factor(Obesity),
+        Hemochromatosis=as.factor(Hemochromatosis),
+        Arterial.Hypertension=as.factor(Arterial.Hypertension),
+        Chronic.Renal.Insufficiency=as.factor(Chronic.Renal.Insufficiency),
+        Human.Immunodeficiency.Virus=as.factor(Human.Immunodeficiency.Virus),
+        Nonalcoholic.Steatohepatitis=as.factor(Nonalcoholic.Steatohepatitis),
+        Esophageal.Varices=as.factor(Esophageal.Varices),
+        Splenomegaly=as.factor(Splenomegaly),
+        Portal.Hypertension=as.factor(Portal.Hypertension),
+        Portal.Vein.Thrombosis=as.factor(Portal.Vein.Thrombosis),
+        Liver.Metastasis=as.factor(Liver.Metastasis),
+        Radiological.Hallmark=as.factor(Radiological.Hallmark),
+        Age.at.diagnosis=as.numeric(Age.at.diagnosis),
+        Grams.of.Alcohol.per.day=as.numeric(Grams.of.Alcohol.per.day),
+        Packs.of.cigarets.per.year=as.numeric(Packs.of.cigarets.per.year),
+        Performance.Status=as.factor(Performance.Status),
+        Encefalopathy.degree=as.factor(Encefalopathy.degree),
+        Ascites.degree=as.factor(Ascites.degree),
+        International.Normalised.Ratio=as.numeric(International.Normalised.Ratio),
+        AlphaFetoprotein=as.numeric(AlphaFetoprotein),
+        Haemoglobin=as.numeric(Haemoglobin),
+        Mean.Corpuscular.Volume=as.numeric(Mean.Corpuscular.Volume),
+        Leukocytes=as.numeric(Leukocytes),
+        Platelets=as.numeric(Platelets),
+        Albumin=as.numeric(Albumin),
+        Total.Bilirubin=as.numeric(Total.Bilirubin),
+        Alanine.transaminase=as.numeric(Alanine.transaminase),
+        Aspartate.transaminase=as.numeric(Aspartate.transaminase),
+        Gamma.glutamyl.transferase=as.numeric(Gamma.glutamyl.transferase),
+        Alkaline.phosphatase=as.numeric(Alkaline.phosphatase),
+        Total.Proteins=as.numeric(Total.Proteins),
+        Creatinine=as.numeric(Creatinine),
+        Number.of.Nodules=as.numeric(Number.of.Nodules),
+        Major.dimension.of.nodule=as.numeric(Major.dimension.of.nodule),
+        Direct.Bilirubin=as.numeric(Direct.Bilirubin),
+        Iron=as.numeric(Iron),
+        Oxygen.Saturation=as.numeric(Oxygen.Saturation),
+        Ferritin=as.numeric(Ferritin),
+        Survival=as.factor(Survival)
+    )
+
+dataset
+```
+
+##Imputation of Missing Values
+
+The below plot illustrates how many attributes contain `NA` values and what percentage of `NA` make up those attributes. Three attributes in particular contain greater than 40% missing values. This percentage is relatively low compared to other datasets, and therefore none of the attributes are excluded based on missing values alone. 
+
+```{r, fig.height=6, fig.width=8, fig.cap="Percent Missing Values in HCC Survival Dataset"}
+values <- {}
+
+#determine % missing values
+for (i in 1:49) {
+  x<-(length(dataset$Survival[is.na(dataset[i])]))/165*100
+  values <- c(values, x)
+}
+
+#create data frame
+df <- data.frame(x=colnames(dataset[,-50]), y=values)
+df <- df[order(-df$y),]
+
+ggplot(data=df, aes(x=reorder(x, y), y=y, width=0.65)) + 
+  geom_bar(stat="identity") + 
+  #geom_hline(yintercept=40, linetype="dashed", color = "red") + 
+  labs(x="", y="Percent NA Values (%)", title="Missing Values by Attribute in HCC Survival Dataset") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  coord_flip() 
+```
+
+I also verify there are no missing values in the response variable, as these will be meaningless. 
+
+```{r}
+#count NA values in response variable
+paste("NA values in response variable (Survival): ", dim(dataset$Survival[is.na(dataset$Survival)==1]), sep="")
+dim(dataset$Survival[is.na(dataset$Survival)==1])
+```
+
+Imputation of missing values is done using the `mice` package. `Nominal` attributes are imputated with the `logreg` method, `ordinal` attributes are imputated with the `polyreg` method, and `continuous` variables are imputated with the `norm` method.
+
+```{r}
+#assign method to each type of column
+init = mice(dataset, maxit=0) 
+meth = init$method
+predM = init$predictorMatrix
+
+meth[c("Symptoms")]="logreg"
+meth[c("Hepatitis.B.Surface.Antigen")]="logreg"
+meth[c("Hepatitis.B.e.Antigen")]="logreg"
+meth[c("Hepatitis.B.Core.Antibody")]="logreg"
+meth[c("Hepatitis.C.Virus.Antibody")]="logreg"
+meth[c("Endemic.Countries")]="logreg"
+meth[c("Smoking")]="logreg"
+meth[c("Diabetes")]="logreg"
+meth[c("Obesity")]="logreg"
+meth[c("Hemochromatosis")]="logreg"
+meth[c("Arterial.Hypertension")]="logreg"
+meth[c("Chronic.Renal.Insufficiency")]="logreg"
+meth[c("Human.Immunodeficiency.Virus")]="logreg"
+meth[c("Nonalcoholic.Steatohepatitis")]="logreg"
+meth[c("Esophageal.Varices")]="logreg"
+meth[c("Splenomegaly")]="logreg"
+meth[c("Portal.Hypertension")]="logreg"
+meth[c("Portal.Vein.Thrombosis")]="logreg"
+meth[c("Liver.Metastasis")]="logreg"
+meth[c("Radiological.Hallmark")]="logreg"
+meth[c("Grams.of.Alcohol.per.day")]="norm"
+meth[c("Packs.of.cigarets.per.year")]="norm"
+meth[c("Encefalopathy.degree")]="polyreg"
+meth[c("Ascites.degree")]="polyreg"
+meth[c("International.Normalised.Ratio")]="norm"
+meth[c("AlphaFetoprotein")]="norm"
+meth[c("Haemoglobin")]="norm"
+meth[c("Mean.Corpuscular.Volume")]="norm"
+meth[c("Leukocytes")]="norm"
+meth[c("Platelets")]="norm"
+meth[c("Albumin")]="norm"
+meth[c("Total.Bilirubin")]="norm"
+meth[c("Alanine.transaminase")]="norm"
+meth[c("Aspartate.transaminase")]="norm"
+meth[c("Gamma.glutamyl.transferase")]="norm"
+meth[c("Alkaline.phosphatase")]="norm"
+meth[c("Total.Proteins")]="norm"
+meth[c("Creatinine")]="norm"
+meth[c("Number.of.Nodules")]="norm"
+meth[c("Major.dimension.of.nodule")]="norm"
+meth[c("Direct.Bilirubin")]="norm"
+meth[c("Iron")]="norm"
+meth[c("Oxygen.Saturation")]="norm"
+meth[c("Ferritin")]="norm"
+```
+
+```{r, warning=FALSE, message=FALSE, results='hide'}
+#imputate values
+set.seed(7)
+imputed = mice(dataset, method=meth, predictorMatrix=predM, m=5)
+imputed.dataset <- complete(imputed)
+imputed.dataset
+```
+
+```{r, results='hide'}
+#verify no missing values in each column
+kable(sapply(imputed.dataset, function(x) sum(is.na(x))))
+```
+
+##Correlation Table
+
+Correlated attributes are reported in the table below using a custom function which reports the highest correlated values (Pearson Correlation Coefficient of greater than absolute value of 0.7). `Direct.Bilirubin`, `Oxygen.Saturation`, `Aspartate.transaminase` and `Grams.of.Alcohol.per.day` are excluded from our analysis as these have more missing values than their counterparts. Surprisingly, the Pearson Correlation Coefficient for `Smoking` and `Packs.of.cigarets.per.year` is only 0.436. Nevertheless, `Packs.of.cigarets.per.year` is exclude as well since it makes sense this attribute is related to `Smoking`.
+
+```{r}
+#custom function to format a correlation matrix in long form
+flattenCorrMatrix <- function(cormat, pmat) {
+  ut <- upper.tri(cormat)
+  data.frame(
+    row = rownames(cormat)[row(cormat)[ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut]
+    )
+}
+```
+
+```{r}
+X <- dataset
+
+#create the correlation matrix
+corr.m <- rcorr(as.matrix(X))
+
+#flatten correlation matrix
+flatcorr.m <- flattenCorrMatrix(corr.m$r, corr.m$P)
+
+#sort correlation matrix
+flatcorr.sorted <- flatcorr.m[order(-flatcorr.m$cor),]
+flatcorr.sorted <- flatcorr.sorted[flatcorr.sorted$cor > 0.7 | flatcorr.sorted$cor < -0.7,]
+flatcorr.sorted <- flatcorr.sorted[complete.cases(flatcorr.sorted), ]
+flatcorr.sorted$cor <- round(flatcorr.sorted$cor, 3)
+
+#select for correlated columns
+kable(flatcorr.sorted, caption="Correlated Variables for HCC Survival Dataset", booktabs = T) %>%
+  kable_styling(latex_options=c("striped","hold_position"), full_width = F)
+```
+
+```{r, results='hide'}
+#remove highly correlated attributes
+remove <- c("Direct.Bilirubin", "Oxygen.Saturation", "Aspartate.transaminase", "Grams.of.Alcohol.per.day", "Packs.of.cigarets.per.year")
+dataset.final <- imputed.dataset[ , -which(names(imputed.dataset) %in% remove)]
+dataset.final
+
+#write out to csv file
+write.csv(dataset.final, file="HCC_final.csv",row.names=FALSE)
+read.csv("HCC_final.csv")
+```
+
+##Histograms and BoxPlots
+
+The following histograms and boxplots illustrate the distribution of each continuous and categorical predictor variable. Interestingly, at first glance of the boxplots for the variable `Number of Nodules`, survival does not seem to be affected by the number of nodules, which is counterintuitive. However, there might be differences in survival based on the variables `Leukocytes`, `Albumin`, `Gamma Glutamyl Transferase`, and `Alkaline Phosphatase`.
+
+```{r, warning=FALSE, message=FALSE, fig.height=8, fig.width=8, fig.cap="Histograms of Continuous Variables in HCC Survival Dataset"}
+data <- imputed.dataset[, c(24:26, 30:49)]
+n <- (length(data))
+p <- list()
+for(i in 1:n){
+  p[[i]] <- ggplot(data, aes_string(x=data[,i])) +
+    geom_histogram() +
+    labs(title=colnames(data[i]), x=colnames(data[i]))
+}
+
+do.call("grid.arrange", c(p, nrow=6))
+```
+
+```{r, fig.height=8, fig.width=8, fig.cap="Boxplots of Continuous Variables in HCC Survival Dataset"}
+data <- imputed.dataset[, c(24:26, 30:49)]
+x <- imputed.dataset[,50]
+n <- length(data)
+p <- list()
+for(i in 1:n){
+  p[[i]] <- ggplot(data, aes_string(y=data[,i], group=x)) + 
+    geom_boxplot() + 
+    labs(title=paste(colnames(data[i]), " vs Survival", sep=""), x="Survival", y=colnames(data[i]))
+}
+
+do.call("grid.arrange", c(p, nrow=6))
+```
+
+```{r, fig.height=8, fig.width=8, fig.cap="Boxplots of Categorical Variables in HCC Survival Dataset"}
+data <- imputed.dataset[, -c(24:26, 30:49)]
+x <- imputed.dataset[,50]
+n <- length(data)
+p <- list()
+for(i in 1:n){
+  p[[i]] <- ggplot(data, aes_string(y=data[,i], group=x)) + 
+    geom_boxplot() + 
+    labs(title=paste(colnames(data[i]), " vs Survival", sep=""), x="Survival", y=colnames(data[i]))
+}
+
+do.call("grid.arrange", c(p, nrow=6))
+```
+
+\newpage
+
+#Analysis using Entire Dataset
+
+```{r, results='hide'}
+dataset <- dataset.final
+dataset
+```
+
+```{r, results='hide'}
+#assign nominal and ordingal columns as factors and continuous columns as double and integers
+dataset <- dataset %>%
+    mutate(
+        Gender=as.factor(Gender),
+        Symptoms=as.factor(Symptoms),
+        Alcohol=as.factor(Alcohol),
+        Hepatitis.B.Surface.Antigen=as.factor(Hepatitis.B.Surface.Antigen),
+        Hepatitis.B.e.Antigen=as.factor(Hepatitis.B.e.Antigen),
+        Hepatitis.B.Core.Antibody=as.factor(Hepatitis.B.Core.Antibody),
+        Hepatitis.C.Virus.Antibody=as.factor(Hepatitis.C.Virus.Antibody),
+        Cirrhosis=as.factor(Cirrhosis),
+        Endemic.Countries=as.factor(Endemic.Countries),
+        Smoking=as.factor(Smoking),
+        Diabetes=as.factor(Diabetes),
+        Obesity=as.factor(Obesity),
+        Hemochromatosis=as.factor(Hemochromatosis),
+        Arterial.Hypertension=as.factor(Arterial.Hypertension),
+        Chronic.Renal.Insufficiency=as.factor(Chronic.Renal.Insufficiency),
+        Human.Immunodeficiency.Virus=as.factor(Human.Immunodeficiency.Virus),
+        Nonalcoholic.Steatohepatitis=as.factor(Nonalcoholic.Steatohepatitis),
+        Esophageal.Varices=as.factor(Esophageal.Varices),
+        Splenomegaly=as.factor(Splenomegaly),
+        Portal.Hypertension=as.factor(Portal.Hypertension),
+        Portal.Vein.Thrombosis=as.factor(Portal.Vein.Thrombosis),
+        Liver.Metastasis=as.factor(Liver.Metastasis),
+        Radiological.Hallmark=as.factor(Radiological.Hallmark),
+        Age.at.diagnosis=as.numeric(Age.at.diagnosis),
+        Performance.Status=as.factor(Performance.Status),
+        Encefalopathy.degree=as.factor(Encefalopathy.degree),
+        Ascites.degree=as.factor(Ascites.degree),
+        International.Normalised.Ratio=as.numeric(International.Normalised.Ratio),
+        AlphaFetoprotein=as.numeric(AlphaFetoprotein),
+        Haemoglobin=as.numeric(Haemoglobin),
+        Mean.Corpuscular.Volume=as.numeric(Mean.Corpuscular.Volume),
+        Leukocytes=as.numeric(Leukocytes),
+        Platelets=as.numeric(Platelets),
+        Albumin=as.numeric(Albumin),
+        Total.Bilirubin=as.numeric(Total.Bilirubin),
+        Alanine.transaminase=as.numeric(Alanine.transaminase),
+        #Aspartate.transaminase=as.numeric(Aspartate.transaminase),
+        Gamma.glutamyl.transferase=as.numeric(Gamma.glutamyl.transferase),
+        Alkaline.phosphatase=as.numeric(Alkaline.phosphatase),
+        Total.Proteins=as.numeric(Total.Proteins),
+        Creatinine=as.numeric(Creatinine),
+        Number.of.Nodules=as.numeric(Number.of.Nodules),
+        Major.dimension.of.nodule=as.numeric(Major.dimension.of.nodule),
+        Iron=as.numeric(Iron),
+        Ferritin=as.numeric(Ferritin),
+        Survival=as.factor(Survival)
+    )
+
+dataset
+
+cont.dataset <- dataset[28:45]
+#cont.dataset
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+#Logistic Regression 
+#Validation Set Approach (VSA)
+
+set.seed(7)
+
+#split the data set
+train <- sample(length(dataset[,1]), length(dataset[,1])/2)
+trainData <- dataset[train, ]
+testData <- dataset[-train, ]
+
+#fit the model
+logreg <- glm(Survival ~ ., data=trainData, family="binomial", maxit=100)
+
+
+#predict probabilities and assign based on cutoff
+predict <- predict(logreg, newdata=testData, type="response")
+pred <- rep(0, length(predict))
+pred[predict > 0.5] <- 1
+
+#calculate error rate
+ER.VSA.logreg <- format(round(mean(pred != testData$Survival)*100, 1), nsmall=1)
+ER.VSA.logreg
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+#Logistic Regression 
+#LOOCV
+
+error<-{}
+
+for (i in 1:length(dataset[,1])) {
+  #fit the model
+  glm.fit <- glm(Survival ~ ., data=dataset[-i, ], family="binomial", maxit=100)
+  
+  #predictions from the model
+  pred <- ifelse(predict(glm.fit, newdata = dataset[i, ], type = "response") > 0.5, 1, 0)
+  err <- ifelse(pred == dataset$Survival[i], 0, 1)
+  error <- c(error, err)
+}
+
+ER.LOOCV.logreg <- format(round(mean(error)*100, 1), nsmall=1)
+ER.LOOCV.logreg
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+#Logistic Regression 
+#5-fold CV
+
+set.seed(7)
+k <- 5
+data <- dataset
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+error<-{}
+
+for(i in 1:k){
+    #Split the data by fold 
+    testIndexes <- which(folds == i, arr.ind=TRUE)
+    testData <- data2[testIndexes, ]
+    trainData <- data2[-testIndexes, ]
+    
+    #fit the model
+    glm <- glm(Survival ~ ., data=trainData, family="binomial", maxit=100)
+    
+    pred <- ifelse(predict(glm, newdata=testData, type = "response") > 0.5, 1, 0)
+    err <- ifelse(pred == testData$Survival, 0, 1)
+    error <- c(error, err)
+}
+
+ER.5k.logreg <- format(round(mean(error)*100, 1), nsmall=1)
+ER.5k.logreg
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+#kNN
+#Validation Set Approach (VSA)
+
+set.seed(7)
+
+#split the data set
+train <- sample(length(dataset[,1]), length(dataset[,1])/2)
+trainData <- dataset[train, ]
+testData <- dataset[-train, ]
+
+#fit the model
+knn <- knn(trainData, testData, trainData$Survival, k=8)
+
+#calculate error rate
+err <- mean(knn != testData$Survival)
+ER.VSA.knn <- format(round(mean(err*100), 1), nsmall=1)
+ER.VSA.knn
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+#kNN
+#LOOCV
+
+error<-{}
+
+for (i in 1:length(dataset[,1])) {
+  trainData <- dataset[-i, ]
+  testData <- dataset[i, ]
+  
+  #fit the model
+  knn <- knn(trainData, testData, trainData$Survival, k=21)
+  
+  #calculate error rate
+  err <- mean(knn != testData$Survival)
+  error <- c(error, err)
+}
+
+ER.LOOCV.knn <- format(round(mean(error)*100, 1), nsmall=1)
+ER.LOOCV.knn
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+#kNN
+#5-fold CV
+
+set.seed(7)
+k <- 5
+data <- dataset
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+error<-{}
+
+for(i in 1:k){
+    #Split the data by fold 
+    testIndexes <- which(folds == i, arr.ind=TRUE)
+    testData <- data2[testIndexes, ]
+    trainData <- data2[-testIndexes, ]
+    
+    #fit the model
+    knn <- knn(trainData, testData, trainData$Survival, k=20)
+    
+    #calculate error rate
+    err <- mean(knn != testData$Survival)
+    error <- c(error, err)
+}
+
+ER.5k.knn <- format(round(mean(error)*100, 1), nsmall=1)
+ER.5k.knn
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+#LDA
+#Validation Set Approach (VSA)
+
+set.seed(7)
+
+#split the data set
+train <- sample(length(dataset[,1]), length(dataset[,1])/2)
+trainData <- dataset[train, ]
+testData <- dataset[-train, ]
+
+#fit the model and predict
+lda <- lda(Survival ~ ., data=trainData)
+lda.predict <- predict(lda, testData)
+lda.class <- lda.predict$class
+
+#calculate error rate
+err <- mean(lda.class != testData$Survival)
+ER.VSA.lda <- format(round(err*100, 1), nsmall=1)
+ER.VSA.lda
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+#LDA
+#LOOCV
+
+error<-{}
+
+for (i in 1:length(dataset[,1])) {
+  trainData <- dataset[-i, ]
+  testData <- dataset[i, ]
+  
+  #fit the model and predict
+  lda <- lda(Survival ~ ., data=trainData)
+  lda.predict <- predict(lda, testData)
+  lda.class <- lda.predict$class
+  
+  #calculate error rate
+  err <- mean(lda.class != testData$Survival)
+  error <- c(error, err)
+}
+
+ER.LOOCV.lda <- format(round(mean(error)*100, 1), nsmall=1)
+ER.LOOCV.lda
+```
+ 
+```{r, results='hide', warning=FALSE, message=FALSE}
+#LDA
+#5-fold CV
+
+set.seed(7)
+k <- 5
+data <- dataset
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+error<-{}
+
+for(i in 1:k){
+    #Split the data by fold 
+    testIndexes <- which(folds == i, arr.ind=TRUE)
+    testData <- data2[testIndexes, ]
+    trainData <- data2[-testIndexes, ]
+    
+    #fit the model and predict
+    lda <- lda(Survival ~ ., data=trainData)
+    lda.predict <- predict(lda, testData)
+    lda.class <- lda.predict$class
+    
+    #calculate error rate
+    err <- mean(lda.class != testData$Survival)
+    error <- c(error, err)
+}
+
+ER.5k.lda <- format(round(mean(error)*100, 1), nsmall=1)
+ER.5k.lda
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+#QDA
+#Validation Set Approach (VSA)
+
+set.seed(7)
+
+#split the data set
+train <- sample(length(cont.dataset[,1]), length(cont.dataset[,1])/2)
+trainData <- cont.dataset[train, ]
+testData <- cont.dataset[-train, ]
+
+#fit the model and predict
+qda <- qda(Survival ~ ., data=trainData)
+qda.predict <- predict(qda, testData)
+qda.class <- qda.predict$class
+
+#calculate error rate
+err <- mean(qda.class != testData$Survival)
+ER.VSA.qda <- format(round(err*100, 1), nsmall=1)
+ER.VSA.qda
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+#QDA
+#LOOCV
+
+error<-{}
+
+for (i in 1:length(cont.dataset[,1])) {
+  trainData <- cont.dataset[-i, ]
+  testData <- cont.dataset[i, ]
+  
+  #fit the model and predict
+  qda <- qda(Survival ~ ., data=trainData)
+  qda.predict <- predict(qda, testData)
+  qda.class <- qda.predict$class
+  
+  #calculate error rate
+  err <- mean(qda.class != testData$Survival)
+  error <- c(error, err)
+}
+
+ER.LOOCV.qda <- format(round(mean(error)*100, 1), nsmall=1)
+ER.LOOCV.qda
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+#QDA
+#5-fold CV
+
+set.seed(7)
+k <- 5
+data <- cont.dataset
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+error<-{}
+
+for(i in 1:k){
+    #Split the data by fold 
+    testIndexes <- which(folds == i, arr.ind=TRUE)
+    testData <- data2[testIndexes, ]
+    trainData <- data2[-testIndexes, ]
+    
+    #fit the model and predict
+    qda <- qda(Survival ~ ., data=trainData)
+    qda.predict <- predict(qda, testData)
+    qda.class <- qda.predict$class
+    
+    #calculate error rate
+    err <- mean(qda.class != testData$Survival)
+    error <- c(error, err)
+}
+
+ER.5k.qda <- format(round(mean(error)*100, 1), nsmall=1)
+ER.5k.qda
+```
+
+```{r mclustvsa, results='hide', include=FALSE}
+#mclust
+#Validation Set Approach (VSA)
+
+set.seed(7)
+
+#split the data set
+train <- sample(length(dataset[,1]), length(dataset[,1])/2)
+trainData <- dataset[train, ]
+testData <- dataset[-train, ]
+
+Model.Name <- {}
+Test.Error <- {}
+Means <- {}
+BIC <- {}
+multi.models <- c("XII","XXI","EII","VII","EEI","VEI","EVI","VVI","EEE","EVE","VEE","VVE")
+
+#fit the model and predict
+for (j in 1:length(multi.models)) {
+  #assign model name to vector
+  Model.Name <- c(Model.Name, multi.models[j])
+
+  #fit the model
+  mclust.mod2 <- MclustDA(trainData[,-45], class=trainData$Survival, modelNames=multi.models[j])
+      
+  #predict the model
+  predict.test2 <- predict(mclust.mod2, testData[,-45], type="response")
+      
+  #assign test error to vector
+  test.err <- mean(predict.test2$classification != testData$Survival)
+  Test.Error <- c(Test.Error, round(test.err,3))
+  
+  mean <- format(round(mean(Test.Error)*100, 1), nsmall=1)
+  Means <- c(Means, mean)
+  
+  #call on bic
+  BIC <- c(BIC, mclust.mod2$bic)
+}
+```
+
+```{r, results='hide'}
+#create data frame from vectors
+df.mclustvsa <- data.frame(Model=Model.Name, 
+                 Test.Error.Rate=Means, 
+                 BIC=BIC)
+df.mclustvsa <- df.mclustvsa[order(-df.mclustvsa$BIC),]
+df.mclustvsa$Test.Error.Rate <- as.numeric(as.character(df.mclustvsa$Test.Error.Rate))
+
+ER.VSA.mclust <- df.mclustvsa[1,2]
+ER.VSA.mclust
+```
+
+```{r mclustloocv, results='hide', include=FALSE}
+#mclust
+#LOOCV
+
+set.seed(7)
+data <- dataset
+Model.Name <- {}
+Means <- {}
+BIC <- {}
+multi.models <- c("XII","XXI","EII","VII","EEI","VEI","EVI","VVI","EEE","EVE","VEE","VVE","EEV","VEV","EVV","VVV")
+
+for (j in 1:length(multi.models)) {
+  bic <- {}
+  Test.Error <- {}
+  
+  #assign model name to vector
+  Model.Name <- c(Model.Name, multi.models[j])
+
+  for (i in 1:length(dataset[,1])) {
+    
+      trainData <- dataset[-i, ]
+      testData <- dataset[i, ]
+      
+      #fit the model
+      mclust.mod2 <- MclustDA(trainData[,-45], class=trainData$Survival, modelNames=multi.models[j])
+      
+      #predict the model
+      predict.test2 <- predict(mclust.mod2, testData[,-45], type="response")
+      
+      #assign test error to vector
+      test.err <- mean(predict.test2$classification != testData$Survival)
+      Test.Error <- c(Test.Error, round(test.err,3))
+      
+      #call on bic
+      bic <- c(bic, mclust.mod2$bic)
+  }
+  mean.bic <- round(mean(bic), 4)
+  BIC <- c(BIC, mean.bic)
+      
+  mean <- format(round(mean(Test.Error)*100, 1), nsmall=1)
+  Means <- c(Means, mean)
+}
+```
+
+```{r, results='hide'}
+#create data frame from vectors
+df.mclustloocv <- data.frame(Model=Model.Name, 
+                 Test.Error.Rate=Means, 
+                 BIC=BIC)
+df.mclustloocv <- df.mclustloocv[order(-df.mclustloocv$BIC),]
+df.mclustloocv$Test.Error.Rate <- as.numeric(as.character(df.mclustloocv$Test.Error.Rate))
+
+ER.LOOCV.mclust <- df.mclustloocv[1,2]
+ER.LOOCV.mclust
+```
+
+```{r mclust5k, results='hide', include=FALSE}
+#mclust
+#5-fold CV
+
+set.seed(7)
+k <- 5
+data <- dataset
+Model.Name <- {}
+Means <- {}
+BIC <- {}
+multi.models <- c("XII","XXI","EII","VII","EEI","VEI","EVI","VVI","EEE","EVE","VEE","VVE","EEV","VEV","EVV","VVV")
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+for (j in 1:length(multi.models)) {
+  bic <- {}
+  Test.Error <- {}
+  #assign model name to vector
+  Model.Name <- c(Model.Name, multi.models[j])
+      
+  for(i in 1:k){
+      #Split the data by fold 
+      testIndexes <- which(folds == i, arr.ind=TRUE)
+      testData <- data2[testIndexes, ]
+      trainData <- data2[-testIndexes, ]
+      
+      #fit the model
+      mclust.mod2 <- MclustDA(trainData[,-45], class=trainData$Survival, modelNames=multi.models[j])
+      
+      #predict the model
+      predict.test2 <- predict(mclust.mod2, testData[,-45], type="response")
+      
+      #assign test error to vector
+      test.err <- mean(predict.test2$classification != testData$Survival)
+      Test.Error <- c(Test.Error, round(test.err,3))
+      
+      #call on bic
+      bic <- c(bic, mclust.mod2$bic)
+  }
+  mean.bic <- round(mean(bic), 4)
+  BIC <- c(BIC, mean.bic)
+      
+  mean <- format(round(mean(Test.Error)*100, 1), nsmall=1)
+  Means <- c(Means, mean)
+}
+```
+
+```{r, results='hide'}
+#create data frame from vectors
+df.mclust5k <- data.frame(Model=Model.Name, 
+                 Test.Error.Rate=Means, 
+                 BIC=BIC)
+df.mclust5k <- df.mclust5k[order(-df.mclust5k$BIC),]
+df.mclust5k$Test.Error.Rate <- as.numeric(as.character(df.mclust5k$Test.Error.Rate))
+
+ER.5k.mclust <- df.mclust5k[1,2]
+ER.5k.mclust
+```
+
+```{r mclust2vsa, results='hide', include=FALSE}
+#mclust, modelType="EDDA"
+#Validation Set Approach (VSA)
+
+set.seed(7)
+
+#split the data set
+train <- sample(length(dataset[,1]), length(dataset[,1])/2)
+trainData <- dataset[train, ]
+testData <- dataset[-train, ]
+
+Model.Name <- {}
+Test.Error <- {}
+Means <- {}
+BIC <- {}
+multi.models <- c("EII","VII","EEI","VEI","EEE","EEV","VEV")
+
+#fit the model and predict
+for (j in 1:length(multi.models)) {
+  #assign model name to vector
+  Model.Name <- c(Model.Name, multi.models[j])
+
+  #fit the model
+  mclust.mod2 <- MclustDA(trainData[,-45], class=trainData$Survival, modelNames=multi.models[j], modelType="EDDA")
+      
+  #predict the model
+  predict.test2 <- predict(mclust.mod2, testData[,-45], type="response")
+      
+  #assign test error to vector
+  test.err <- mean(predict.test2$classification != testData$Survival)
+  Test.Error <- c(Test.Error, round(test.err,3))
+  
+  mean <- format(round(mean(Test.Error)*100, 1), nsmall=1)
+  Means <- c(Means, mean)
+  
+  #call on bic
+  BIC <- c(BIC, mclust.mod2$bic)
+}
+```
+
+```{r, results='hide'}
+#create data frame from vectors
+df.mclust2vsa <- data.frame(Model=Model.Name, 
+                 Test.Error.Rate=Means, 
+                 BIC=BIC)
+df.mclust2vsa <- df.mclust2vsa[order(-df.mclust2vsa$BIC),]
+df.mclust2vsa$Test.Error.Rate <- as.numeric(as.character(df.mclust2vsa$Test.Error.Rate))
+
+ER.VSA.mclustEDDA <- format(df.mclust2vsa[1,2], nsmall=1)
+ER.VSA.mclustEDDA
+```
+
+```{r, results='hide', include=FALSE}
+#mclust, modelType="EDDA"
+#LOOCV
+
+set.seed(7)
+data <- dataset
+Model.Name <- {}
+Means <- {}
+BIC <- {}
+multi.models <- c("EII","VII","EEI","VEI","EEE","EEV","VEV")
+
+for (j in 1:length(multi.models)) {
+  bic <- {}
+  Test.Error <- {}
+  
+  #assign model name to vector
+  Model.Name <- c(Model.Name, multi.models[j])
+
+  for (i in 1:length(dataset[,1])) {
+    
+      trainData <- dataset[-i, ]
+      testData <- dataset[i, ]
+      
+      #fit the model
+      mclust.mod2 <- MclustDA(trainData[,-45], class=trainData$Survival, modelNames=multi.models[j], modelType="EDDA")
+      
+      #predict the model
+      predict.test2 <- predict(mclust.mod2, testData[,-45], type="response")
+      
+      #assign test error to vector
+      test.err <- mean(predict.test2$classification != testData$Survival)
+      Test.Error <- c(Test.Error, round(test.err,3))
+      
+      #call on bic
+      bic <- c(bic, mclust.mod2$bic)
+  }
+  mean.bic <- round(mean(bic), 4)
+  BIC <- c(BIC, mean.bic)
+      
+  mean <- format(round(mean(Test.Error)*100, 1), nsmall=1)
+  Means <- c(Means, mean)
+}
+```
+
+```{r, results='hide'}
+#create data frame from vectors
+df.mclust2loocv <- data.frame(Model=Model.Name, 
+                 Test.Error.Rate=Means, 
+                 BIC=BIC)
+df.mclust2loocv <- df.mclust2loocv[order(-df.mclust2loocv$BIC),]
+df.mclust2loocv$Test.Error.Rate <- as.numeric(as.character(df.mclust2loocv$Test.Error.Rate))
+
+ER.LOOCV.mclustEDDA <- df.mclust2loocv[1,2]
+ER.LOOCV.mclustEDDA
+```
+
+```{r, results='hide', include=FALSE}
+#mclust, modelType="EDDA"
+#5-fold CV
+
+set.seed(7)
+k <- 5
+data <- dataset
+Model.Name <- {}
+Means <- {}
+BIC <- {}
+multi.models <- c("EII", "VII","EEI","VEI","EEE","EEV","VEV")
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+for (j in 1:length(multi.models)) {
+  bic <- {}
+  Test.Error <- {}
+  #assign model name to vector
+  Model.Name <- c(Model.Name, multi.models[j])
+      
+  for(i in 1:k){
+      #Split the data by fold 
+      testIndexes <- which(folds == i, arr.ind=TRUE)
+      testData <- data2[testIndexes, ]
+      trainData <- data2[-testIndexes, ]
+      
+      #fit the model
+      mclust.mod2 <- MclustDA(trainData[,-45], class=trainData$Survival, modelNames=multi.models[j], modelType="EDDA")
+      
+      #predict the model
+      predict.test2 <- predict(mclust.mod2, testData[,-45], type="response")
+      
+      #assign test error to vector
+      test.err <- mean(predict.test2$classification != testData$Survival)
+      Test.Error <- c(Test.Error, round(test.err,3))
+      
+      #call on bic
+      bic <- c(bic, mclust.mod2$bic)
+  }
+  mean.bic <- round(mean(bic), 4)
+  BIC <- c(BIC, mean.bic)
+      
+  mean <- format(round(mean(Test.Error)*100, 1), nsmall=1)
+  Means <- c(Means, mean)
+}
+```
+
+```{r, results='hide'}
+#create data frame from vectors
+df.mclust25k <- data.frame(Model=Model.Name, 
+                 Test.Error.Rate=Means, 
+                 BIC=BIC)
+df.mclust25k <- df.mclust25k[order(-df.mclust25k$BIC),]
+df.mclust25k$Test.Error.Rate <- as.numeric(as.character(df.mclust25k$Test.Error.Rate))
+
+ER.5k.mclustEDDA <- df.mclust25k[1,2]
+ER.5k.mclustEDDA
+```
+
+```{r rfvsa, results='hide', warning=FALSE, message=FALSE}
+#random forest
+#VSA
+
+set.seed(7)
+
+#split the data set
+train <- sample(length(dataset[,1]), length(dataset[,1])/2)
+trainData <- dataset[train, ]
+testData <- dataset[-train, ]
+
+#run the randomForest algorithm
+rf <- randomForest(Survival~., data=trainData, mtry=1, importance=TRUE, ntree=40)
+  
+#prediction from the model
+pred <- predict(rf, data=testData, type="response")
+  
+#calculate error rate
+err <- mean(pred != testData$Survival)
+
+#calculate error rate
+ER.VSA.rf <- format(round(err*100, 1), nsmall=1)
+ER.VSA.rf
+```
+
+
+```{r rfloocv, results='hide', warning=FALSE, message=FALSE}
+#random forest
+#LOOCV
+
+error<-{}
+
+for (i in 1:length(dataset[,1])) {
+  trainData <- dataset[-i, ]
+  testData <- dataset[i, ]
+  
+  #run the randomForest algorithm
+  rf <- randomForest(Survival~., data=trainData, mtry=1, importance=TRUE, ntree=1000)
+    
+  #prediction from the model
+  pred <- predict(rf, data=testData, type="response")
+    
+  #calculate error rate
+  err <- mean(pred != testData$Survival)
+  error <- c(error, err)
+}
+
+ER.LOOCV.rf <- format(round(mean(error)*100, 1), nsmall=1)
+ER.LOOCV.rf
+```
+
+
+```{r rf5k, results='hide', warning=FALSE, message=FALSE}
+#random forest
+#5-fold CV
+
+set.seed(7)
+k <- 5
+data <- dataset
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+error<-{}
+
+for(i in 1:k){
+    #Split the data by fold 
+    testIndexes <- which(folds == i, arr.ind=TRUE)
+    testData <- data2[testIndexes, ]
+    trainData <- data2[-testIndexes, ]
+    
+    #run the randomForest algorithm
+    rf <- randomForest(Survival~., data=trainData, mtry=1, importance=TRUE, ntree=490)
+      
+    #prediction from the model
+    pred <- predict(rf, data=testData, type="response")
+      
+    #calculate error rate
+    err <- mean(pred != testData$Survival)
+    error <- c(error, err)
+}
+
+ER.5k.rf <- format(round(mean(error)*100, 1), nsmall=1)
+ER.5k.rf
+```
+
+```{r, results='hide'}
+#tune the SVM linear model
+sv.tune <- tune(svm, Survival~., data=dataset, kernel="linear", ranges=list(cost=c(0.1, 1, 10, 100, 1000)))
+linear.model <- sv.tune$best.model
+linear.model$cost
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+## SVM linear kernel
+### Validation Set Approach (VSA)
+
+set.seed(7)
+
+#split the data set
+train <- sample(length(dataset[,1]), length(dataset[,1])/2)
+trainData <- dataset[train, ]
+testData <- dataset[-train, ]
+
+#run SVM
+svc <- svm(Survival~., data=trainData, kernel="linear", cost=linear.model$cost)
+
+#prediction from the model
+predict <- predict(svc, testData)
+
+#calculate error rate
+err <- mean(predict != testData$Survival)
+ER.VSA.linear <- format(round(err, 1)*100, nsmall=1)
+ER.VSA.linear
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+## SVM linear kernel
+### LOOCV 
+
+error<-{}
+
+for (i in 1:length(dataset[,1])) {
+  trainData <- dataset[-i, ]
+  testData <- dataset[i, ]
+
+  #run SVM
+  svc <- svm(Survival~., data=trainData, kernel="linear", cost=linear.model$cost)
+
+  #prediction from the model
+  predict <- predict(svc, testData)
+
+  #calculate error rate
+  err <- mean(predict != testData$Survival)
+  error <- c(error, err)
+}
+
+ER.LOOCV.linear <- format(round(mean(error)*100, 1), nsmall=1)
+ER.LOOCV.linear
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+## SVM linear kernel
+### 5-fold Cross Validation
+
+set.seed(7)
+k <- 5
+data <- dataset
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+error<-{}
+
+for(i in 1:k){
+    #Split the data by fold 
+    testIndexes <- which(folds == i, arr.ind=TRUE)
+    testData <- data2[testIndexes, ]
+    trainData <- data2[-testIndexes, ]
+    
+    #run SVM
+    svc <- svm(Survival~., data=trainData, kernel="linear", cost=linear.model$cost)
+    
+    #prediction from the model
+    predict <- predict(svc, testData)
+    
+    #calculate error rate
+    err <- mean(predict != testData$Survival)
+    error <- c(error, err)
+}
+
+ER.5k.linear <- format(round(mean(error)*100, 1), nsmall=1)
+ER.5k.linear
+```
+
+```{r, results='hide'}
+#tune the radial model
+sv.tune <- tune(svm, Survival~., data=dataset, kernel="radial", 
+                ranges=list(cost=c(0.1, 1, 10, 100, 1000), gamma=c(0.5, 1, 2, 3, 4)))
+radial.model <- sv.tune$best.model
+radial.model$cost
+radial.model$gamma
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+## SVM radial kernel
+### Validation Set Approach (VSA)
+
+set.seed(7)
+
+#split the data set
+train <- sample(length(dataset[,1]), length(dataset[,1])/2)
+trainData <- dataset[train, ]
+testData <- dataset[-train, ]
+
+#fit the svm
+svm.radial <- svm(Survival~., data=trainData, kernel="radial", cost=radial.model$cost, gamma=radial.model$gamma)
+
+#prediction from the model
+predict <- predict(svm.radial, testData)
+
+#calculate error rate
+err <- mean(predict != testData$Survival)
+ER.VSA.radial <- format(round(err, 1)*100, nsmall=1)
+ER.VSA.radial
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+## SVM radial kernel
+### LOOCV 
+
+error<-{}
+
+for (i in 1:length(dataset[,1])) {
+  trainData <- dataset[-i, ]
+  testData <- dataset[i, ]
+
+  #run SVM
+  svm.radial <- svm(Survival~., data=trainData, kernel="radial", cost=radial.model$cost)
+
+  #prediction from the model
+  predict <- predict(svm.radial, testData)
+
+  #calculate error rate
+  err <- mean(predict != testData$Survival)
+  error <- c(error, err)
+}
+
+ER.LOOCV.radial <- format(round(mean(error)*100, 1), nsmall=1)
+ER.LOOCV.radial
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+## SVM radial kernel
+### 5-fold Cross Validation
+
+set.seed(7)
+k <- 5
+data <- dataset
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+error<-{}
+
+for(i in 1:k){
+    #Split the data by fold 
+    testIndexes <- which(folds == i, arr.ind=TRUE)
+    testData <- data2[testIndexes, ]
+    trainData <- data2[-testIndexes, ]
+    
+    #run SVM
+    svm.radial <- svm(Survival~., data=trainData, kernel="radial", cost=radial.model$cost, gamma=radial.model$gamma)
+    
+    #prediction from the model
+    predict <- predict(svm.radial, testData)
+    
+    #calculate error rate
+    err <- mean(predict != testData$Survival)
+    error <- c(error, err)
+}
+
+ER.5k.radial <- format(round(mean(error)*100, 1), nsmall=1)
+ER.5k.radial
+```
+
+```{r, results='hide'}
+#tune the SVM polynomial model
+sv.tune <- tune(svm, Survival~., data=dataset, kernel="polynomial", 
+                ranges=list(cost=c(0.1, 1, 10, 100, 1000), gamma=c(0.5, 1, 2, 3, 4), degree=c(1:10)))
+poly.model <- sv.tune$best.model
+poly.model$cost
+poly.model$gamma
+poly.model$degree
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+## SVM polynomial kernel
+### Validation Set Approach (VSA)
+
+set.seed(7)
+
+#split the data set
+train <- sample(length(dataset[,1]), length(dataset[,1])/2)
+trainData <- dataset[train, ]
+testData <- dataset[-train, ]
+
+#run SVM
+svm.poly <- svm(Survival~., data=trainData, kernel="polynomial", cost=poly.model$cost, gamma=poly.model$gamma, degree=poly.model$degree)
+
+#prediction from the model
+predict <- predict(svm.poly, testData)
+
+#calculate error rate
+err <- mean(predict != testData$Survival)
+ER.VSA.poly <- format(round(err, 1)*100, nsmall=1)
+ER.VSA.poly
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+## SVM polynomial kernel
+### LOOCV 
+
+error<-{}
+
+for (i in 1:length(dataset[,1])) {
+  trainData <- dataset[-i, ]
+  testData <- dataset[i, ]
+
+  #run SVM
+  svm.poly <- svm(Survival~., data=trainData, kernel="polynomial", cost=poly.model$cost)
+
+  #prediction from the model
+  predict <- predict(svm.poly, testData)
+
+  #calculate error rate
+  err <- mean(predict != testData$Survival)
+  error <- c(error, err)
+}
+
+ER.LOOCV.poly <- format(round(mean(error)*100, 1), nsmall=1)
+ER.LOOCV.poly
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+## SVM polynomial kernel
+### 5-fold Cross Validation
+
+set.seed(7)
+k <- 5
+data <- dataset
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+error<-{}
+
+for(i in 1:k){
+    #Split the data by fold 
+    testIndexes <- which(folds == i, arr.ind=TRUE)
+    testData <- data2[testIndexes, ]
+    trainData <- data2[-testIndexes, ]
+    
+    #run SVM
+    svm.poly <- svm(Survival~., data=trainData, kernel="polynomial", cost=poly.model$cost, gamma=poly.model$gamma, degree=poly.model$degree)
+    
+    #prediction from the model
+    predict <- predict(svm.poly, testData)
+    
+    #calculate error rate
+    err <- mean(predict != testData$Survival)
+    error <- c(error, err)
+}
+
+ER.5k.poly <- format(round(mean(error)*100, 1), nsmall=1)
+ER.5k.poly
+```
+
+**Preliminary Findings:** Results for all models are reported in table 2. SVM performed the best with test error rates less than 25%. Logistic regression, LDA, and MclustDA with modelType=EDDA also performed well with test error rates between 25% and 30%. However, since survival data usually breaks the normality assumption, LDA will no longer be considered.   
+
+```{r}
+df <- data.frame(Method=c("Logistic Regression", 
+                          "kNN", 
+                          "LDA", 
+                          "QDA",
+                          "MclustDA", 
+                          "MclustDA, Model Type = EDDA", 
+                          "Random Forest", 
+                          "SVM Linear", 
+                          "SVM Radial", 
+                          "SVM Polynomial"),
+                 VSA=c(ER.VSA.logreg, 
+                       ER.VSA.knn, 
+                       ER.VSA.lda, 
+                       ER.VSA.qda, 
+                       ER.VSA.mclust, 
+                       ER.VSA.mclustEDDA, 
+                       ER.VSA.rf, 
+                       ER.VSA.linear, 
+                       ER.VSA.radial, 
+                       ER.VSA.poly),
+                 LOOCV=c(ER.LOOCV.logreg, 
+                         ER.LOOCV.knn, 
+                         ER.LOOCV.lda, 
+                         ER.LOOCV.qda, 
+                         ER.LOOCV.mclust, 
+                         ER.LOOCV.mclustEDDA, 
+                         ER.LOOCV.rf, 
+                         ER.LOOCV.linear, 
+                         ER.LOOCV.radial, 
+                         ER.LOOCV.poly),
+                 Five.fold.CV=c(ER.5k.logreg, 
+                                ER.5k.knn, 
+                                ER.5k.lda, 
+                                ER.5k.qda, 
+                                ER.5k.mclust, 
+                                ER.5k.mclustEDDA, 
+                                ER.5k.rf, 
+                                ER.5k.linear, 
+                                ER.5k.radial, 
+                                ER.5k.poly))
+
+kable(df, caption="Model Comparison of Test Error Rates (as percent)", booktabs = T) %>%
+  kable_styling(latex_options=c("striped","hold_position"), full_width = F) 
+```
+
+#Stepwise Selection
+
+Since this dataset has many features, prediction accuracy might be improved by selecting for the most relevant features. A subset of predictors is chosen using forward and backward stepwise selection, and then the best performing models (test error rates below 30%) are run again.
+
+```{r, results='hide'}
+set.seed(7)
+
+#split the data set
+train <- sample(length(dataset[,1]), length(dataset[,1])/4)
+trainData <- dataset[-train, ]
+testData <- dataset[train, ]
+
+trainData
+testData
+```
+
+## Forward Stepwise Selection
+
+```{r, results='hide'}
+set.seed(7)
+
+#fit the subset model
+forward <- regsubsets(Survival ~ ., data=dataset.final, nvmax=44, method="forward")
+summ <- summary(forward)
+
+x <- which.max(summ$adjr2)
+y <- x-2
+y
+```
+
+Forward stepwise selection reduces the original 44 predictors to only `r y`. The new formula to becomes:
+
+$$
+\begin{aligned}
+                  Survival &=
+                      Alcohol + \\
+                      &Hepatitis.B.Surface.Antigen + \\
+                      &Hepatitis.C.Virus.Antibody + \\
+                      &Smoking + \\
+                      &Diabetes + \\
+                      &Hemochromatosis + \\
+                      &Arterial.Hypertension + \\
+                      &Nonalcoholic.Steatohepatitis + \\
+                      &Splenomegaly + \\
+                      &Portal.Hypertension + \\
+                      &Portal.Vein.Thrombosis + \\
+                      &Age.at.diagnosis + \\
+                      &Performance.Status + \\
+                      &Encefalopathy.degree + \\
+                      &Ascites.degree + \\
+                      &AlphaFetoprotein + \\
+                      &Haemoglobin + \\
+                      &Total.Bilirubin + \\
+                      &Alanine.transaminase + \\
+                      &Alkaline.phosphatase + \\
+                      &Major.dimension.of.nodule + \\
+                      &Iron + \\
+                      &Ferritin
+\end{aligned}
+$$
+
+```{r, results='hide'}
+table <- round(coef(forward, x), 2)
+write.csv(table, file = "table.csv")
+kable(table, caption="Selected Variables", booktabs = T) %>%
+  kable_styling(latex_options=c("striped","hold_position"), full_width = F)
+```
+
+## Backward Stepwise Selection
+
+```{r, results='hide'}
+set.seed(7)
+
+#fit the subset model
+backward <- regsubsets(Survival ~ ., data=dataset.final, nvmax=44, method="backward")
+summ <- summary(backward)
+
+x <- which.max(summ$adjr2)
+y <- x-2
+y
+```
+
+Backward stepwise selection reduces the original 44 predictors to `r y`. The new formula to becomes:
+
+$$
+\begin{aligned}
+                  Survival &=
+                      Alcohol + \\
+                      &Hepatitis.B.Surface.Antigen + \\
+                      &Hepatitis.C.Virus.Antibody + \\
+                      &Smoking + \\
+                      &Diabetes + \\
+                      &Hemochromatosis + \\
+                      &Arterial.Hypertension + \\
+                      &Nonalcoholic.Steatohepatitis + \\
+                      &Splenomegaly + \\
+                      &Portal.Hypertension + \\
+                      &Portal.Vein.Thrombosis + \\
+                      &Age.at.diagnosis + \\
+                      &Performance.Status + \\
+                      &Encefalopathy.degree + \\
+                      &Ascites.degree + \\
+                      &AlphaFetoprotein + \\
+                      &Haemoglobin + \\
+                      &Total.Bilirubin + \\
+                      &Alanine.transaminase + \\
+                      &Alkaline.phosphatase + \\
+                      &Major.dimension.of.nodule + \\
+                      &Ferritin
+\end{aligned}                      
+$$
+
+```{r, results='hide'}
+table <- round(coef(backward, x), 2)
+write.csv(table, file = "table.csv")
+kable(table, caption="Selected Variables", booktabs = T) %>%
+  kable_styling(latex_options=c("striped","hold_position"), full_width = F)
+```
+
+```{r}
+formula.forward <- Survival ~ 
+                    Alcohol + 
+                    Hepatitis.B.Surface.Antigen + 
+                    Hepatitis.C.Virus.Antibody + 
+                    Smoking + 
+                    Diabetes + 
+                    Hemochromatosis + 
+                    Arterial.Hypertension + 
+                    Nonalcoholic.Steatohepatitis + 
+                    Splenomegaly + 
+                    Portal.Hypertension + 
+                    Portal.Vein.Thrombosis + 
+                    Age.at.diagnosis + 
+                    Performance.Status + 
+                    Encefalopathy.degree + 
+                    Ascites.degree + 
+                    AlphaFetoprotein + 
+                    Haemoglobin + 
+                    Total.Bilirubin + 
+                    Alanine.transaminase + 
+                    Alkaline.phosphatase + 
+                    Major.dimension.of.nodule + 
+                    Iron + 
+                    Ferritin
+
+
+formula.backward <- Survival ~ 
+                      Alcohol + 
+                      Hepatitis.B.Surface.Antigen + 
+                      Hepatitis.C.Virus.Antibody + 
+                      Smoking + 
+                      Diabetes + 
+                      Hemochromatosis + 
+                      Arterial.Hypertension + 
+                      Nonalcoholic.Steatohepatitis + 
+                      Splenomegaly + 
+                      Portal.Hypertension + 
+                      Portal.Vein.Thrombosis + 
+                      Age.at.diagnosis + 
+                      Performance.Status + 
+                      Encefalopathy.degree + 
+                      Ascites.degree + 
+                      AlphaFetoprotein + 
+                      Haemoglobin + 
+                      Total.Bilirubin + 
+                      Alanine.transaminase + 
+                      Alkaline.phosphatase + 
+                      Major.dimension.of.nodule + 
+                      Ferritin
+```
+
+#Analysis using Subset of Predictors 
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+#Logistic Regression 
+#LOOCV
+
+error<-{}
+
+for (i in 1:length(dataset[,1])) {
+  #fit the model
+  glm.fit <- glm(formula.forward, data=dataset[-i, ], family="binomial", maxit=100)
+  
+  #predictions from the model
+  pred <- ifelse(predict(glm.fit, newdata = dataset[i, ], type = "response") > 0.5, 1, 0)
+  err <- ifelse(pred == dataset$Survival[i], 0, 1)
+  error <- c(error, err)
+}
+
+logreg.loocv.forward <- format(round(mean(error)*100, 1), nsmall=1)
+logreg.loocv.forward
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+#Logistic Regression 
+#LOOCV
+
+error<-{}
+
+for (i in 1:length(dataset[,1])) {
+  #fit the model
+  glm.fit <- glm(formula.backward, data=dataset[-i, ], family="binomial", maxit=100)
+  
+  #predictions from the model
+  pred <- ifelse(predict(glm.fit, newdata = dataset[i, ], type = "response") > 0.5, 1, 0)
+  err <- ifelse(pred == dataset$Survival[i], 0, 1)
+  error <- c(error, err)
+}
+
+logreg.loocv.backward <- format(round(mean(error)*100, 1), nsmall=1)
+logreg.loocv.backward
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+#Logistic Regression 
+#5-fold CV
+
+set.seed(7)
+k <- 5
+data <- dataset
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+error<-{}
+
+for(i in 1:k){
+    #Split the data by fold 
+    testIndexes <- which(folds == i, arr.ind=TRUE)
+    testData <- data2[testIndexes, ]
+    trainData <- data2[-testIndexes, ]
+    
+    #fit the model
+    glm <- glm(formula.forward, data=trainData, family="binomial", maxit=100)
+    
+    pred <- ifelse(predict(glm, newdata=testData, type = "response") > 0.5, 1, 0)
+    err <- ifelse(pred == testData$Survival, 0, 1)
+    error <- c(error, err)
+}
+
+logreg.5k.forward <- format(round(mean(error)*100, 1), nsmall=1)
+logreg.5k.forward
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+#Logistic Regression 
+#5-fold CV
+
+set.seed(7)
+k <- 5
+data <- dataset
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+error<-{}
+
+for(i in 1:k){
+    #Split the data by fold 
+    testIndexes <- which(folds == i, arr.ind=TRUE)
+    testData <- data2[testIndexes, ]
+    trainData <- data2[-testIndexes, ]
+    
+    #fit the model
+    glm <- glm(formula.backward, data=trainData, family="binomial", maxit=100)
+    
+    pred <- ifelse(predict(glm, newdata=testData, type = "response") > 0.5, 1, 0)
+    err <- ifelse(pred == testData$Survival, 0, 1)
+    error <- c(error, err)
+}
+
+logreg.5k.backward <- format(round(mean(error)*100, 1), nsmall=1)
+logreg.5k.backward
+```
+
+```{r}
+forward <- c("Alcohol", 
+             "Hepatitis.B.Surface.Antigen", 
+             "Hepatitis.C.Virus.Antibody", 
+             "Smoking", 
+             "Diabetes", 
+             "Hemochromatosis", 
+             "Arterial.Hypertension", 
+             "Nonalcoholic.Steatohepatitis", 
+             "Splenomegaly", 
+             "Portal.Hypertension", 
+             "Portal.Vein.Thrombosis", 
+             "Age.at.diagnosis", 
+             "Performance.Status", 
+             "Encefalopathy.degree", 
+             "Ascites.degree", 
+             "AlphaFetoprotein", 
+             "Haemoglobin", 
+             "Total.Bilirubin", 
+             "Alanine.transaminase", 
+             "Alkaline.phosphatase", 
+             "Major.dimension.of.nodule", 
+             "Iron", 
+             "Ferritin")
+
+
+backward <- c("Alcohol", 
+               "Hepatitis.B.Surface.Antigen", 
+               "Hepatitis.C.Virus.Antibody", 
+               "Smoking", 
+               "Diabetes", 
+               "Hemochromatosis", 
+               "Arterial.Hypertension", 
+               "Nonalcoholic.Steatohepatitis", 
+               "Splenomegaly", 
+               "Portal.Hypertension", 
+               "Portal.Vein.Thrombosis", 
+               "Age.at.diagnosis", 
+               "Performance.Status", 
+               "Encefalopathy.degree", 
+               "Ascites.degree", 
+               "AlphaFetoprotein", 
+               "Haemoglobin", 
+               "Total.Bilirubin", 
+               "Alanine.transaminase", 
+               "Alkaline.phosphatase", 
+               "Major.dimension.of.nodule", 
+               "Ferritin")
+```
+
+
+```{r, include=FALSE}
+#mclust, modelType="EDDA"
+#LOOCV
+
+set.seed(7)
+data <- dataset
+Model.Name <- {}
+Means <- {}
+BIC <- {}
+multi.models <- c("EII","VII","EEI","VEI","EEE","EEV","VEV")
+
+for (j in 1:length(multi.models)) {
+  bic <- {}
+  Test.Error <- {}
+  
+  #assign model name to vector
+  Model.Name <- c(Model.Name, multi.models[j])
+
+  for (i in 1:length(dataset[,1])) {
+    
+      trainData <- dataset[-i, ]
+      testData <- dataset[i, ]
+      
+      #fit the model
+      mclust.mod2 <- MclustDA(trainData[, forward], class=trainData$Survival, modelNames=multi.models[j], modelType="EDDA")
+      
+      #predict the model
+      predict.test2 <- predict(mclust.mod2, testData[, forward], type="response")
+      
+      #assign test error to vector
+      test.err <- mean(predict.test2$classification != testData$Survival)
+      Test.Error <- c(Test.Error, round(test.err,3))
+      
+      #call on bic
+      bic <- c(bic, mclust.mod2$bic)
+  }
+  mean.bic <- round(mean(bic), 4)
+  BIC <- c(BIC, mean.bic)
+      
+  mean <- format(round(mean(Test.Error)*100, 1), nsmall=1)
+  Means <- c(Means, mean)
+}
+```
+
+```{r, results='hide'}
+#create data frame from vectors
+df.mclust2loocv <- data.frame(Model=Model.Name, 
+                 Test.Error.Rate=Means, 
+                 BIC=BIC)
+df.mclust2loocv <- df.mclust2loocv[order(-df.mclust2loocv$BIC),]
+df.mclust2loocv$Test.Error.Rate <- as.numeric(as.character(df.mclust2loocv$Test.Error.Rate))
+
+mclustEDDA.loocv.forward <- df.mclust2loocv[1,2]
+mclustEDDA.loocv.forward
+```
+
+```{r, include=FALSE}
+#mclust, modelType="EDDA"
+#LOOCV
+
+set.seed(7)
+data <- dataset
+Model.Name <- {}
+Means <- {}
+BIC <- {}
+multi.models <- c("EII","VII","EEI","VEI","EEE","EEV","VEV")
+
+for (j in 1:length(multi.models)) {
+  bic <- {}
+  Test.Error <- {}
+  
+  #assign model name to vector
+  Model.Name <- c(Model.Name, multi.models[j])
+
+  for (i in 1:length(dataset[,1])) {
+    
+      trainData <- dataset[-i, ]
+      testData <- dataset[i, ]
+      
+      #fit the model
+      mclust.mod2 <- MclustDA(trainData[, backward], class=trainData$Survival, modelNames=multi.models[j], modelType="EDDA")
+      
+      #predict the model
+      predict.test2 <- predict(mclust.mod2, testData[, backward], type="response")
+      
+      #assign test error to vector
+      test.err <- mean(predict.test2$classification != testData$Survival)
+      Test.Error <- c(Test.Error, round(test.err,3))
+      
+      #call on bic
+      bic <- c(bic, mclust.mod2$bic)
+  }
+  mean.bic <- round(mean(bic), 4)
+  BIC <- c(BIC, mean.bic)
+      
+  mean <- format(round(mean(Test.Error)*100, 1), nsmall=1)
+  Means <- c(Means, mean)
+}
+```
+
+```{r, results='hide'}
+#create data frame from vectors
+df.mclust2loocv <- data.frame(Model=Model.Name, 
+                 Test.Error.Rate=Means, 
+                 BIC=BIC)
+df.mclust2loocv <- df.mclust2loocv[order(-df.mclust2loocv$BIC),]
+df.mclust2loocv$Test.Error.Rate <- as.numeric(as.character(df.mclust2loocv$Test.Error.Rate))
+
+mclustEDDA.loocv.backward <- df.mclust2loocv[1,2]
+mclustEDDA.loocv.backward
+```
+
+```{r, include=FALSE}
+#mclust, modelType="EDDA"
+#5-fold CV
+
+set.seed(7)
+k <- 5
+data <- dataset
+Model.Name <- {}
+Means <- {}
+BIC <- {}
+multi.models <- c("EII", "VII","EEI","VEI","EEE","EEV","VEV")
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+for (j in 1:length(multi.models)) {
+  bic <- {}
+  Test.Error <- {}
+  #assign model name to vector
+  Model.Name <- c(Model.Name, multi.models[j])
+      
+  for(i in 1:k){
+      #Split the data by fold 
+      testIndexes <- which(folds == i, arr.ind=TRUE)
+      testData <- data2[testIndexes, ]
+      trainData <- data2[-testIndexes, ]
+      
+      #fit the model
+      mclust.mod2 <- MclustDA(trainData[, forward], class=trainData$Survival, modelNames=multi.models[j], modelType="EDDA")
+      
+      #predict the model
+      predict.test2 <- predict(mclust.mod2, testData[, forward], type="response")
+      
+      #assign test error to vector
+      test.err <- mean(predict.test2$classification != testData$Survival)
+      Test.Error <- c(Test.Error, round(test.err,3))
+      
+      #call on bic
+      bic <- c(bic, mclust.mod2$bic)
+  }
+  mean.bic <- round(mean(bic), 4)
+  BIC <- c(BIC, mean.bic)
+      
+  mean <- format(round(mean(Test.Error)*100, 1), nsmall=1)
+  Means <- c(Means, mean)
+}
+```
+
+```{r, results='hide'}
+#create data frame from vectors
+df.mclust25k <- data.frame(Model=Model.Name, 
+                 Test.Error.Rate=Means, 
+                 BIC=BIC)
+df.mclust25k <- df.mclust25k[order(-df.mclust25k$BIC),]
+df.mclust25k$Test.Error.Rate <- as.numeric(as.character(df.mclust25k$Test.Error.Rate))
+
+mclustEDDA.5k.forward <- df.mclust25k[1,2]
+mclustEDDA.5k.forward
+```
+
+```{r, include=FALSE}
+#mclust, modelType="EDDA"
+#5-fold CV
+
+set.seed(7)
+k <- 5
+data <- dataset
+Model.Name <- {}
+Means <- {}
+BIC <- {}
+multi.models <- c("EII", "VII","EEI","VEI","EEE","EEV","VEV")
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+for (j in 1:length(multi.models)) {
+  bic <- {}
+  Test.Error <- {}
+  #assign model name to vector
+  Model.Name <- c(Model.Name, multi.models[j])
+      
+  for(i in 1:k){
+      #Split the data by fold 
+      testIndexes <- which(folds == i, arr.ind=TRUE)
+      testData <- data2[testIndexes, ]
+      trainData <- data2[-testIndexes, ]
+      
+      #fit the model
+      mclust.mod2 <- MclustDA(trainData[, backward], class=trainData$Survival, modelNames=multi.models[j], modelType="EDDA")
+      
+      #predict the model
+      predict.test2 <- predict(mclust.mod2, testData[, backward], type="response")
+      
+      #assign test error to vector
+      test.err <- mean(predict.test2$classification != testData$Survival)
+      Test.Error <- c(Test.Error, round(test.err,3))
+      
+      #call on bic
+      bic <- c(bic, mclust.mod2$bic)
+  }
+  mean.bic <- round(mean(bic), 4)
+  BIC <- c(BIC, mean.bic)
+      
+  mean <- format(round(mean(Test.Error)*100, 1), nsmall=1)
+  Means <- c(Means, mean)
+}
+```
+
+```{r, results='hide'}
+#create data frame from vectors
+df.mclust25k <- data.frame(Model=Model.Name, 
+                 Test.Error.Rate=Means, 
+                 BIC=BIC)
+df.mclust25k <- df.mclust25k[order(-df.mclust25k$BIC),]
+df.mclust25k$Test.Error.Rate <- as.numeric(as.character(df.mclust25k$Test.Error.Rate))
+
+mclustEDDA.5k.backward <- df.mclust25k[1,2]
+mclustEDDA.5k.backward
+```
+
+```{r, results='hide'}
+#tune the SVM linear model
+sv.tune <- tune(svm, Survival~., data=dataset, kernel="linear", ranges=list(cost=c(0.1, 1, 10, 100, 1000)))
+linear.model <- sv.tune$best.model
+linear.model$cost
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+## SVM linear kernel
+### LOOCV 
+
+error<-{}
+
+for (i in 1:length(dataset[,1])) {
+  trainData <- dataset[-i, ]
+  testData <- dataset[i, ]
+
+  #run SVM
+  svc <- svm(formula.forward, data=trainData, kernel="linear", cost=linear.model$cost)
+
+  #prediction from the model
+  predict <- predict(svc, testData)
+
+  #calculate error rate
+  err <- mean(predict != testData$Survival)
+  error <- c(error, err)
+}
+
+SVMlinear.loocv.forward <- format(round(mean(error)*100, 1), nsmall=1)
+SVMlinear.loocv.forward
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+## SVM linear kernel
+### LOOCV 
+
+error<-{}
+
+for (i in 1:length(dataset[,1])) {
+  trainData <- dataset[-i, ]
+  testData <- dataset[i, ]
+
+  #run SVM
+  svc <- svm(formula.backward, data=trainData, kernel="linear", cost=linear.model$cost)
+
+  #prediction from the model
+  predict <- predict(svc, testData)
+
+  #calculate error rate
+  err <- mean(predict != testData$Survival)
+  error <- c(error, err)
+}
+
+SVMlinear.loocv.backward <- format(round(mean(error)*100, 1), nsmall=1)
+SVMlinear.loocv.backward
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+## SVM linear kernel
+### 5-fold Cross Validation
+
+set.seed(7)
+k <- 5
+data <- dataset
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+error<-{}
+
+for(i in 1:k){
+    #Split the data by fold 
+    testIndexes <- which(folds == i, arr.ind=TRUE)
+    testData <- data2[testIndexes, ]
+    trainData <- data2[-testIndexes, ]
+    
+    #run SVM
+    svc <- svm(formula.forward, data=trainData, kernel="linear", cost=linear.model$cost)
+    
+    #prediction from the model
+    predict <- predict(svc, testData)
+    
+    #calculate error rate
+    err <- mean(predict != testData$Survival)
+    error <- c(error, err)
+}
+
+SVMlinear.5k.forward <- format(round(mean(error)*100, 1), nsmall=1)
+SVMlinear.5k.forward
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+## SVM linear kernel
+### 5-fold Cross Validation
+
+set.seed(7)
+k <- 5
+data <- dataset
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+error<-{}
+
+for(i in 1:k){
+    #Split the data by fold 
+    testIndexes <- which(folds == i, arr.ind=TRUE)
+    testData <- data2[testIndexes, ]
+    trainData <- data2[-testIndexes, ]
+    
+    #run SVM
+    svc <- svm(formula.backward, data=trainData, kernel="linear", cost=linear.model$cost)
+    
+    #prediction from the model
+    predict <- predict(svc, testData)
+    
+    #calculate error rate
+    err <- mean(predict != testData$Survival)
+    error <- c(error, err)
+}
+
+SVMlinear.5k.backward <- format(round(mean(error)*100, 1), nsmall=1)
+SVMlinear.5k.backward
+```
+
+```{r, results='hide'}
+#tune the SVM polynomial model
+sv.tune <- tune(svm, Survival~., data=dataset, kernel="polynomial", 
+                ranges=list(cost=c(0.1, 1, 10, 100, 1000), gamma=c(0.5, 1, 2, 3, 4), degree=c(1:10)))
+poly.model <- sv.tune$best.model
+poly.model$cost
+poly.model$gamma
+poly.model$degree
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+## SVM polynomial kernel
+### 5-fold Cross Validation
+
+set.seed(7)
+k <- 5
+data <- dataset
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+error<-{}
+
+for(i in 1:k){
+    #Split the data by fold 
+    testIndexes <- which(folds == i, arr.ind=TRUE)
+    testData <- data2[testIndexes, ]
+    trainData <- data2[-testIndexes, ]
+    
+    #run SVM
+    svm.poly <- svm(formula.forward, data=trainData, kernel="polynomial", cost=poly.model$cost, gamma=poly.model$gamma, degree=poly.model$degree)
+    
+    #prediction from the model
+    predict <- predict(svm.poly, testData)
+    
+    #calculate error rate
+    err <- mean(predict != testData$Survival)
+    error <- c(error, err)
+}
+
+SVMpoly.5k.forward <- format(round(mean(error)*100, 1), nsmall=1)
+SVMpoly.5k.forward
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+## SVM polynomial kernel
+### 5-fold Cross Validation
+
+set.seed(7)
+k <- 5
+data <- dataset
+
+#Randomly shuffle the data
+data2 <- data[sample(nrow(data)),]
+
+#Create equally size folds
+folds <- cut(seq(1, nrow(data2)), breaks=k, labels=FALSE)
+
+#Perform k-fold cross validation
+error<-{}
+
+for(i in 1:k){
+    #Split the data by fold 
+    testIndexes <- which(folds == i, arr.ind=TRUE)
+    testData <- data2[testIndexes, ]
+    trainData <- data2[-testIndexes, ]
+    
+    #run SVM
+    svm.poly <- svm(formula.backward, data=trainData, kernel="polynomial", cost=poly.model$cost, gamma=poly.model$gamma, degree=poly.model$degree)
+    
+    #prediction from the model
+    predict <- predict(svm.poly, testData)
+    
+    #calculate error rate
+    err <- mean(predict != testData$Survival)
+    error <- c(error, err)
+}
+
+SVMpoly.5k.backward <- format(round(mean(error)*100, 1), nsmall=1)
+SVMpoly.5k.backward
+```
+
+Results for all models using a subset of predictors are reported in table 3. Overall, we find a significant reduction in test error rate for all models, with forward stepwise selection performing better than backward stepwise selection, with two exceptions. In general, logistic regression using and SVM performed better than other models and four of those models had test error rates below 20%. SVM using a polynomial kernel and backward step selection performed the best with a test error rate of 18.2%. However, the polynomial kernel uses degree = 1.
+
+```{r}
+df <- data.frame(Models=c("Logistic Regression LOOCV", 
+                          "Logistic Regression 5-fold CV", 
+                          "MclustDA, Model Type = EDDA LOOCV", 
+                          "MclustDA, Model Type = EDDA 5-fold CV", 
+                          "SVM Linear LOOCV",
+                          "SVM Linear 5-fold CV", 
+                          "SVM Polynomial 5-fold CV"), 
+                 Forward_Selection=c(logreg.loocv.forward, 
+                                     logreg.5k.forward, 
+                                     mclustEDDA.loocv.forward, 
+                                     mclustEDDA.5k.forward, 
+                                     SVMlinear.loocv.forward,
+                                     SVMlinear.5k.forward,
+                                     SVMpoly.5k.forward),
+                 Backward_Selection=c(logreg.loocv.backward, 
+                                     logreg.5k.backward, 
+                                     mclustEDDA.loocv.backward, 
+                                     mclustEDDA.5k.backward, 
+                                     SVMlinear.loocv.backward,
+                                     SVMlinear.5k.backward,
+                                     SVMpoly.5k.backward))
+
+kable(df, caption="Top Performing Models with Subset of Predictors", booktabs = T) %>%
+  kable_styling(latex_options=c("striped","hold_position"), full_width = F)
+```
+
+# Final Conclusion
+
+This dataset attempts to find a relationship between several predictor variables in order to be able to predict patients' survival of HCC beyond 1 year. In our analysis, we have narrowed down the list of 44 predictor variables to just `r y` using backward stepwise selection. The proposed model is:
+
+$$
+\begin{aligned}
+                  Survival &=
+                      Alcohol + \\
+                      &Hepatitis.B.Surface.Antigen + \\
+                      &Hepatitis.C.Virus.Antibody + \\
+                      &Smoking + \\
+                      &Diabetes + \\
+                      &Hemochromatosis + \\
+                      &Arterial.Hypertension + \\
+                      &Nonalcoholic.Steatohepatitis + \\
+                      &Splenomegaly + \\
+                      &Portal.Hypertension + \\
+                      &Portal.Vein.Thrombosis + \\
+                      &Age.at.diagnosis + \\
+                      &Performance.Status + \\
+                      &Encefalopathy.degree + \\
+                      &Ascites.degree + \\
+                      &AlphaFetoprotein + \\
+                      &Haemoglobin + \\
+                      &Total.Bilirubin + \\
+                      &Alanine.transaminase + \\
+                      &Alkaline.phosphatase + \\
+                      &Major.dimension.of.nodule + \\
+                      &Ferritin
+\end{aligned}                      
+$$
+
+There is indication that the shape of the decision boundary is in fact linear since the best performing models are SVM with a polynomial kernel adn degree = 1, SVM with linear kernel, and logistic regression. Additional data can potentially vastly improve the approximately 20% test error rate, and all three models should be reevaluated to determine the best model. In doing so, this data and prediction model will help doctors determine a particular patient's stage of HCC, and therefore determine best course of treatment.
