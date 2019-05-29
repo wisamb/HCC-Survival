@@ -1,6 +1,6 @@
 # HCC-Survival
 
-# Introduction
+## Introduction
 
 Survival data was collected on patients of liver cancer (Hepatocarcinoma, or HCC) from a University Hospital in Portugal. The response variable is survival at 1 year of initial diagnosis and is classified as lives = 1 and dies = 0\. The dataset contains several demographic, risk factors, and laboratory data of 165 patients that have been diagnosed with HCC. The dataset is heterogeneous with 23 quantitative predictor variables and 26 qualitative predictor variables. Missing values account for 10.2% of the whole dataset with only 8 patients having complete data in all fields.
 
@@ -22,11 +22,11 @@ Imputation of Missing Values
 
 <div id="exploratory-analysis" class="section level1">
 
-# Exploratory Analysis
+## Exploratory Analysis
 
 <div id="imputation-of-missing-values" class="section level2">
 
-## Imputation of Missing Values
+### Imputation of Missing Values
 
 The below plot illustrates how many attributes contain missing values and what percentage of missing values make up those attributes. Three attributes in particular contain greater than 40% missing values. This percentage is relatively low compared to other datasets, and therefore none of the attributes are excluded based on missing values alone.
 
@@ -44,7 +44,7 @@ I also verify there are no missing values in the response variable, as these wil
 
 <div id="correlation-table" class="section level2">
 
-## Correlation Table
+### Correlation Table
 
 Correlated attributes are reported in the table below using a custom function which reports the highest correlated values (Pearson Correlation Coefficient of greater than absolute value of 0.7). `Direct.Bilirubin`, `Oxygen.Saturation`, `Aspartate.transaminase` and `Grams.of.Alcohol.per.day` are excluded from our analysis as these have more missing values than their counterparts. Surprisingly, the Pearson Correlation Coefficient for `Smoking` and `Packs.of.cigarets.per.year` is only 0.436\. Nevertheless, `Packs.of.cigarets.per.year` is exclude as well since it makes sense this attribute is related to `Smoking`.
 
@@ -134,7 +134,7 @@ Correlated attributes are reported in the table below using a custom function wh
 
 <div id="histograms-and-boxplots" class="section level2">
 
-## Histograms and BoxPlots
+### Histograms and BoxPlots
 
 The following histograms and boxplots illustrate the distribution of each continuous and categorical predictor variable. Interestingly, at first glance survival does not seem to be affected by the variable `Number of Nodules`, which is counterintuitive. However, there might be differences in survival based on the variables `Leukocytes`, `Albumin`, `Gamma Glutamyl Transferase`, and `Alkaline Phosphatase`.
 
@@ -150,7 +150,7 @@ The following histograms and boxplots illustrate the distribution of each contin
 
 <div id="analysis-using-entire-dataset" class="section level1">
 
-# Analysis using Entire Dataset
+## Analysis using Entire Dataset
 
 **Preliminary Findings:** Results for all models are reported in table 2\. SVM performed the best with test error rates less than 25%. Logistic regression, LDA, and MclustDA with modelType=EDDA also performed well with test error rates between 25% and 30%. However, since survival data usually breaks the normality assumption, LDA will no longer be considered.
 
@@ -302,13 +302,13 @@ The following histograms and boxplots illustrate the distribution of each contin
 
 <div id="stepwise-selection" class="section level1">
 
-# Stepwise Selection
+## Stepwise Selection
 
 Since this dataset has many features, prediction accuracy might be improved by selecting for the most relevant features. A subset of predictors is chosen using forward and backward stepwise selection, and then the best performing models (test error rates below 30%) are run again.
 
 <div id="forward-stepwise-selection" class="section level2">
 
-## Forward Stepwise Selection
+### Forward Stepwise Selection
 
 Forward stepwise selection reduces the original 44 predictors to only 23\. The new formula to becomes:
 
@@ -318,7 +318,7 @@ Forward stepwise selection reduces the original 44 predictors to only 23\. The n
 
 <div id="backward-stepwise-selection" class="section level2">
 
-## Backward Stepwise Selection
+### Backward Stepwise Selection
 
 Backward stepwise selection reduces the original 44 predictors to 22\. The new formula to becomes:
 
@@ -330,7 +330,7 @@ Backward stepwise selection reduces the original 44 predictors to 22\. The new f
 
 <div id="analysis-using-subset-of-predictors" class="section level1">
 
-# Analysis using Subset of Predictors
+## Analysis using Subset of Predictors
 
 Results for all models using a subset of predictors are reported in table 3\. Overall, we find a significant reduction in test error rate for all models, with forward stepwise selection performing better than backward stepwise selection, with two exceptions. In general, logistic regression using LOOCV and SVM performed better than other models, and four of those models had test error rates below 20%. SVM using a polynomial kernel and backward step selection performed the best with a test error rate of 18.2%. However, the polynomial kernel uses degree = 1 which is equivalent to a linear kernel (the difference in results being in the other parameters of the svm algorithm).
 
@@ -430,7 +430,7 @@ Results for all models using a subset of predictors are reported in table 3\. Ov
 
 <div id="final-conclusion" class="section level1">
 
-# Final Conclusion
+## Final Conclusion
 
 This dataset attempts to find a relationship between several variables in order to be able to predict a patient's survival of HCC beyond 1 year. In our analysis, we have narrowed down the list of 44 predictor variables to just 22 using backward stepwise selection. The proposed model is:
 
