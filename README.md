@@ -10,14 +10,6 @@ The problem to answer here is what demographic or clinical data contribute to a 
 
 The HCC dataset can be found <a href = "https://archive.ics.uci.edu/ml/datasets/HCC+Survival#" target="_blank">here</a>.
 
-**Programming Languages/Software:** R, RStudio
-
-**Skills Used:** <br>
-Machine Learning<br> 
-Predictive Modeling<br>
-Exploratory Analysis<br>
-Imputation of Missing Values
-
 </div>
 
 <div id="exploratory-analysis" class="section level1">
@@ -139,8 +131,6 @@ Correlated attributes are reported in the table below using a custom function wh
 The following histograms and boxplots illustrate the distribution of each continuous and categorical predictor variable. Interestingly, at first glance survival does not seem to be affected by the variable `Number of Nodules`, which is counterintuitive. However, there might be differences in survival based on the variables `Leukocytes`, `Albumin`, `Gamma Glutamyl Transferase`, and `Alkaline Phosphatase`.
 
 <img src="/images/histograms.png" alt="Histograms of Continuous Variables in HCC Survival Dataset" width="85%"/>
-
-<img src="/images/boxplots1.png" alt="Boxplots of Continuous Variables in HCC Survival Dataset" width="85%"/>
 
 <img src="/images/boxplots2.png" alt="Boxplots of Categorical Variables in HCC Survival Dataset" width="85%"/>
 
